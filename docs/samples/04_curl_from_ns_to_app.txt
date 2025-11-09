@@ -1,0 +1,19 @@
+# Sample expected output: curl request from a namespace to a deployed app
+# Command example:
+# sudo ip netns exec ns-t2_vpc-public curl -s -D - http://10.30.1.10:8080/
+
+HTTP/1.0 200 OK
+Server: SimpleHTTP/0.6 Python/3.11.4
+Date: Sun, 09 Nov 2025 12:34:56 GMT
+
+<html>
+  <head>
+    <title>Directory listing for /</title>
+  </head>
+  <body>
+    <h1>Directory listing for /</h1>
+    <!-- truncated -->
+  </body>
+</html>
+
+# If the policy denies the port you will see a connection error instead (curl exit non-zero).
