@@ -1,0 +1,12 @@
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host 
+       valid_lft forever preferred_lft forever
+77: v-t2-vpc-public@if76: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default qlen 1000
+    link/ether 32:2a:63:84:ea:75 brd ff:ff:ff:ff:ff:ff link-netnsid 0
+    inet 10.40.1.2/24 scope global v-t2-vpc-public
+       valid_lft forever preferred_lft forever
+    inet6 fe80::302a:63ff:fe84:ea75/64 scope link tentative 
+       valid_lft forever preferred_lft forever

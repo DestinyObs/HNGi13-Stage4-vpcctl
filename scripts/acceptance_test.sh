@@ -100,12 +100,8 @@ echo "--- Step 8: apply sample policy to t1_vpc ---"
 # a temporary policy file that targets that subnet so `apply-policy` is exercised.
 T1_ADDR_CIDR=$(sudo ip netns exec ns-t1_vpc-public ip -4 -o addr show dev v-t1-vpc-public | awk '{print $4}' | head -n1 || true)
 if [[ -n "$T1_ADDR_CIDR" ]]; then
-  T1_NET=$(python3 - <<PY
-import ipaddress,sys
-addr=sys.argv[1]
-print(ipaddress.ip_network(addr, strict=False))
-PY
-  "$T1_ADDR_CIDR")
+  # compute network (use python -c to avoid heredoc/argument quoting pitfalls)
+  T1_NET=$(python3 -c 'import ipaddress,sys; print(ipaddress.ip_network(sys.argv[1], strict=False))' "$T1_ADDR_CIDR")
   POLICY_TMP="$OUTDIR/policy_t1_vpc.json"
   cat > "$POLICY_TMP" <<JSON
 {

@@ -1,0 +1,24 @@
+flag-check: parsing example invocations (no changes will be made):
+  EXAMPLE: create myvpc 10.0.0.0/16
+    -> Namespace(dry=False, cmd='create', name='myvpc', cidr='10.0.0.0/16', cidr_flag=None)
+  EXAMPLE: create myvpc2 --cidr 10.1.0.0/16
+    -> Namespace(dry=False, cmd='create', name='myvpc2', cidr=None, cidr_flag='10.1.0.0/16')
+  EXAMPLE: add-subnet myvpc public 10.0.1.0/24
+    -> Namespace(dry=False, cmd='add-subnet', vpc='myvpc', name='public', cidr='10.0.1.0/24', cidr_flag=None, gw=None)
+  EXAMPLE: add-subnet myvpc private 10.0.2.0/24 --gw 10.0.2.1
+    -> Namespace(dry=False, cmd='add-subnet', vpc='myvpc', name='private', cidr='10.0.2.0/24', cidr_flag=None, gw='10.0.2.1')
+  EXAMPLE: deploy-app myvpc public --port 8080
+    -> Namespace(dry=False, cmd='deploy-app', vpc='myvpc', subnet='public', port=8080, port_flag=8080)
+  EXAMPLE: deploy-app myvpc public 9090
+    -> Namespace(dry=False, cmd='deploy-app', vpc='myvpc', subnet='public', port=9090, port_flag=None)
+  EXAMPLE: enable-nat myvpc --interface eth0
+    -> Namespace(dry=False, cmd='enable-nat', name='myvpc', iface=None, iface_flag='eth0')
+  EXAMPLE: enable-nat myvpc eth0
+    -> Namespace(dry=False, cmd='enable-nat', name='myvpc', iface='eth0', iface_flag=None)
+  EXAMPLE: peer vpcA vpcB --allow-cidrs 10.0.1.0/24,10.1.1.0/24
+    -> Namespace(dry=False, cmd='peer', vpc1='vpcA', vpc2='vpcB', allow_cidrs='10.0.1.0/24,10.1.1.0/24')
+  EXAMPLE: apply-policy myvpc policy.json
+    -> Namespace(dry=False, cmd='apply-policy', vpc='myvpc', policy_file='policy.json')
+  EXAMPLE: test-connectivity 10.0.1.5 80 --from-ns ns-myvpc-public
+    -> Namespace(dry=False, cmd='test-connectivity', target='10.0.1.5', port=80, from_ns='ns-myvpc-public')
+flag-check: done. If all examples parsed as expected, flag parsing looks OK.

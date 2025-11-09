@@ -1,0 +1,4 @@
+Acceptance test analysis
+Namespaces: OK
+HTTP servers: OK
+Connectivity (t2 -> t1 HTTP): OK

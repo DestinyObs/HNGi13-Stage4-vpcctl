@@ -1,0 +1,12 @@
+Peering links pv-t1-vpc-t2-va/pv-t1-vpc-t2-vb appear to already exist; skipping link creation
+>>> iptables -A vpc-t1-vpc -o br-t2-vpc -s 10.30.1.0/24 -d 10.30.1.0/24 -m comment --comment vpcctl:peer:t1_vpc:t2_vpc -j ACCEPT
+>>> iptables -A vpc-t2-vpc -o br-t1-vpc -s 10.30.1.0/24 -d 10.30.1.0/24 -m comment --comment vpcctl:peer:t1_vpc:t2_vpc -j ACCEPT
+>>> iptables -A vpc-t1-vpc -o br-t2-vpc -s 10.30.1.0/24 -d 10.40.1.0/24 -m comment --comment vpcctl:peer:t1_vpc:t2_vpc -j ACCEPT
+>>> iptables -A vpc-t2-vpc -o br-t1-vpc -s 10.30.1.0/24 -d 10.40.1.0/24 -m comment --comment vpcctl:peer:t1_vpc:t2_vpc -j ACCEPT
+>>> iptables -A vpc-t1-vpc -o br-t2-vpc -s 10.40.1.0/24 -d 10.30.1.0/24 -m comment --comment vpcctl:peer:t1_vpc:t2_vpc -j ACCEPT
+>>> iptables -A vpc-t2-vpc -o br-t1-vpc -s 10.40.1.0/24 -d 10.30.1.0/24 -m comment --comment vpcctl:peer:t1_vpc:t2_vpc -j ACCEPT
+>>> iptables -A vpc-t1-vpc -o br-t2-vpc -s 10.40.1.0/24 -d 10.40.1.0/24 -m comment --comment vpcctl:peer:t1_vpc:t2_vpc -j ACCEPT
+>>> iptables -A vpc-t2-vpc -o br-t1-vpc -s 10.40.1.0/24 -d 10.40.1.0/24 -m comment --comment vpcctl:peer:t1_vpc:t2_vpc -j ACCEPT
+>>> iptables -A vpc-t1-vpc -o br-t2-vpc -m comment --comment vpcctl:peer-drop:t1_vpc:t2_vpc -j DROP
+>>> iptables -A vpc-t2-vpc -o br-t1-vpc -m comment --comment vpcctl:peer-drop:t1_vpc:t2_vpc -j DROP
+Peered VPC 't1_vpc' <-> 't2_vpc' with veths pv-t1-vpc-t2-va/pv-t1-vpc-t2-vb. Allowed CIDRs: ['10.30.1.0/24', '10.40.1.0/24']
