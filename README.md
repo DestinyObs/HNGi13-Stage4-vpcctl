@@ -81,6 +81,15 @@ Notes:
 - Privileged actions still require root. Use `sudo vpcctl ...` for operations that create namespaces, bridges or iptables rules.
 - If you see an error like `/usr/bin/env: 'python3\r': No such file or directory` when running `vpcctl`, normalize line endings with `dos2unix` or `sed -i 's/\r$//' vpcctl.py` before copying.
 
+Automatic policy generation
+---------------------------
+When you add a subnet (`vpcctl add-subnet`) the CLI will automatically generate a default JSON policy and apply it to the new subnet. Defaults are chosen to make demo HTTP services reachable:
+
+- Ingress: allow TCP 80 and 443; deny TCP 22
+- Egress: none by default (keeps outbound open for demos)
+
+The generated policy files are stored in `.vpcctl_data/` and can be inspected or re-applied with `vpcctl apply-policy`.
+
 
 Common workflows
 - See `docs/Documentation.md` for the full command reference, policy examples, idempotency notes, and troubleshooting.

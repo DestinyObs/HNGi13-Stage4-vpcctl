@@ -26,6 +26,24 @@ Steps
 7. Test connectivity
    - Use ip netns exec or test script: ./policy_test.sh ns-t1_vpc-public 10.40.1.1 8080
 
+Automatic policy note
+---------------------
+- When you run `add-subnet` the CLI will auto-generate and apply a default policy for that subnet. The default policy allows inbound HTTP(S) (ports 80 and 443) and denies SSH (port 22). This is intentional for demos so HTTP tests succeed without manual policy steps.
+
+Verification steps
+------------------
+- After `add-subnet`, verify the policy was applied and rules exist inside the namespace:
+
+```bash
+sudo ip netns exec ns-<vpc>-<subnet> iptables -S | grep -- '-dport 80\|-dport 443\|-dport 22' -n || true
+```
+
+If you need different defaults for a particular subnet, create a policy JSON and call:
+
+```bash
+sudo python3 vpcctl.py apply-policy <vpc> /path/to/custom_policy.json
+```
+
 Cleanup
 
 - sudo python3 vpcctl.py delete t1_vpc

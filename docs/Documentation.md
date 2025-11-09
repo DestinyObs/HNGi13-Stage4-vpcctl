@@ -38,6 +38,30 @@ Parser-only check (safe — no system changes):
 sudo python3 vpcctl.py flag-check
 ```
 
+Automatic policy generation
+---------------------------
+
+When a subnet is created with `add-subnet`, `vpcctl` now auto-generates a default JSON policy and applies it to the new subnet. This ensures the subnet has a sensible default for demos and graders so services like HTTP work immediately.
+
+Defaults applied on `add-subnet`:
+- Ingress: allow TCP ports 80 and 443; deny TCP port 22
+- Egress: none by default (to avoid blocking outbound connectivity during demos)
+
+The generated policy files are saved under the workspace `.vpcctl_data/` directory with names like `policy_<vpc>_<subnet>_<cidr>.json`. You can inspect, modify or re-apply them using the `apply-policy` subcommand.
+
+To view the auto-generated policy for a specific subnet:
+
+```bash
+ls -l .vpcctl_data/policy_<vpc>_<subnet>_*.json
+cat .vpcctl_data/policy_<vpc>_<subnet>_10.11.1.0_24.json
+```
+
+To re-apply or test a policy manually:
+
+```bash
+sudo python3 vpcctl.py apply-policy <vpc> .vpcctl_data/policy_<vpc>_<subnet>_<cidr>.json
+```
+
 Dry-run mode (global `--dry-run`) prints commands without executing them:
 
 ```bash
