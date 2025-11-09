@@ -1,1 +1,0 @@
-No subnet in VPC 't1_vpc' matches CIDR 10.10.1.0/24; skipping

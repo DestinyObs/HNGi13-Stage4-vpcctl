@@ -1,0 +1,12 @@
+# Runtime & local artifacts
+.vpcctl_data/
+docs/samples/actual-*/
+__pycache__/
+*.pyc
+*.pyo
+/tmp/vpcctl-*.log
+
+# Editor / OS
+.vscode/
+*.swp
+.DS_Store

@@ -1,1 +1,0 @@
-vpcctl: must be run as root (sudo)

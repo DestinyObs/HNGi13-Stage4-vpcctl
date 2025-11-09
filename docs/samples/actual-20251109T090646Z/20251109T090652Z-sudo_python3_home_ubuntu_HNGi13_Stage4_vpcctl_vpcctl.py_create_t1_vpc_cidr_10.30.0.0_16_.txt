@@ -1,8 +1,0 @@
-net.ipv4.ip_forward = 1
->>> ip link add name br-t1-vpc type bridge
->>> ip link set br-t1-vpc up
->>> sysctl -w net.ipv4.ip_forward=1
->>> iptables -N vpc-t1-vpc
->>> iptables -I FORWARD -i br-t1-vpc -m comment --comment vpcctl:t1_vpc:jump -j vpc-t1-vpc
->>> iptables -A vpc-t1-vpc -s 10.30.0.0/16 -d 10.30.0.0/16 -m comment --comment vpcctl:t1_vpc:intra -j ACCEPT
-Created VPC 't1_vpc' with bridge 'br-t1-vpc' and CIDR 10.30.0.0/16

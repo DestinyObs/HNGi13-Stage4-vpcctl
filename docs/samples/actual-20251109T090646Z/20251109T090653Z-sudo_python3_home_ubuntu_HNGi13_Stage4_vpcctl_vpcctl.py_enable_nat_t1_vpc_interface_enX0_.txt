@@ -1,6 +1,0 @@
-net.ipv4.ip_forward = 1
->>> sysctl -w net.ipv4.ip_forward=1
->>> iptables -t nat -A POSTROUTING -s 10.30.0.0/16 -o enX0 -m comment --comment vpcctl:t1_vpc:nat -j MASQUERADE
->>> iptables -A FORWARD -i br-t1-vpc -o enX0 -m comment --comment vpcctl:t1_vpc:fwd-out -j ACCEPT
->>> iptables -A FORWARD -i enX0 -o br-t1-vpc -m state --state ESTABLISHED,RELATED -m comment --comment vpcctl:t1_vpc:fwd-in -j ACCEPT
-Enabled NAT for VPC 't1_vpc' via interface 'enX0'

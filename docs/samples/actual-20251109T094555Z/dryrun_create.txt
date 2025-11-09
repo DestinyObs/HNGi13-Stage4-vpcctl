@@ -1,7 +1,0 @@
->>> ip link add name br-tst-vpc type bridge
->>> ip link set br-tst-vpc up
->>> sysctl -w net.ipv4.ip_forward=1
->>> iptables -N vpc-tst-vpc
->>> iptables -I FORWARD -i br-tst-vpc -m comment --comment vpcctl:tst_vpc:jump -j vpc-tst-vpc
->>> iptables -A vpc-tst-vpc -s 10.99.0.0/16 -d 10.99.0.0/16 -m comment --comment vpcctl:tst_vpc:intra -j ACCEPT
-Created VPC 'tst_vpc' with bridge 'br-tst-vpc' and CIDR 10.99.0.0/16

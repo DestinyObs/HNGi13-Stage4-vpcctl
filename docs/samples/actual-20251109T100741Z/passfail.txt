@@ -1,4 +1,0 @@
-Acceptance test analysis
-Namespaces: MISSING
-HTTP servers: MISSING
-Connectivity (t2 -> t1 HTTP): OK
