@@ -1,0 +1,9 @@
+[
+  {
+    "ingress": [
+      {"port": 8080, "protocol": "tcp", "action": "allow"},
+      {"port": 22, "protocol": "tcp", "action": "allow"}
+    ],
+    "egress": []
+  }
+]

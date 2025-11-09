@@ -1,0 +1,19 @@
+{
+  "name": "stage4-a",
+  "cidr": "10.40.0.0/16",
+  "bridge": "br-stage4-a",
+  "subnets": [
+    {
+      "name": "public",
+      "cidr": "10.40.1.0/24",
+      "ns": "ns-stage4-a-public",
+      "gw": "10.40.1.1",
+      "host_ip": "10.40.1.2",
+      "veth": "v-stage4-a-publ"
+    }
+  ],
+  "host_iptables": [],
+  "chain": "vpc-stage4-a",
+  "apps": [],
+  "peers": []
+}
