@@ -61,6 +61,27 @@ sudo python3 vpcctl.py deploy-app demo public --port 8080
 sudo python3 vpcctl.py delete demo
 ```
 
+Using the plain `vpcctl` command
+--------------------------------
+
+You can also invoke the CLI as a simple command `vpcctl` (no `python3` prefix). The repository includes a script with a shebang, so installing or symlinking it into a directory on your PATH enables this UX:
+
+```bash
+# Option A: copy into /usr/local/bin (system-wide)
+sudo cp vpcctl.py /usr/local/bin/vpcctl
+sudo sed -i 's/\r$//' /usr/local/bin/vpcctl   # ensure LF line endings on Linux
+sudo chmod +x /usr/local/bin/vpcctl
+
+# Option B: create a symlink to the repo copy (keeps one editable copy)
+sudo ln -s "$(pwd)/vpcctl.py" /usr/local/bin/vpcctl
+sudo chmod +x vpcctl.py
+```
+
+Notes:
+- Privileged actions still require root. Use `sudo vpcctl ...` for operations that create namespaces, bridges or iptables rules.
+- If you see an error like `/usr/bin/env: 'python3\r': No such file or directory` when running `vpcctl`, normalize line endings with `dos2unix` or `sed -i 's/\r$//' vpcctl.py` before copying.
+
+
 Common workflows
 - See `docs/Documentation.md` for the full command reference, policy examples, idempotency notes, and troubleshooting.
 - Samples: `docs/samples/` contains example snapshots (iptables, `ip netns`, curl results) that graders can compare against.
