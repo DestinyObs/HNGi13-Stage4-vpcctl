@@ -187,50 +187,141 @@ def _add_iptables_rule(cmd: list, comment: str = None, dry: bool = False) -> boo
 
 
 def _delete_iptables_rule(cmd: list, dry: bool = False) -> bool:
-    """Attempt to delete an iptables rule given the recorded command list.
+    """Attempt to delete an iptables rule robustly.
 
-    Tries a few variants: exact replacement (-A/-I -> -D) and a variant with the comment removed.
-    Returns True if any deletion attempt was run (success/fail is best-effort).
+    Strategy:
+    1. If dry, print and return True.
+    2. Try `iptables -C` (check) on the recorded rule; if it exists, run -D to delete it.
+    3. If not found, list current rules with `iptables -t <table> -S` and try to find a matching
+       rule line that contains the key tokens (src/dst/-o/-i/-j). Transform the '-A' line to '-D'
+       and execute it. This reduces `Bad rule` noise when comment quoting or backend differences
+       (iptables-nft) change the exact rule text.
+    4. As a last resort, strip comment matchers and attempt a -D variant.
+
+    Returns True if a deletion attempt was made; success is best-effort.
     """
-    # Try direct replacement -A/-I -> -D
-    del_cmd = cmd.copy()
-    for i, t in enumerate(del_cmd):
-        if t in ("-A", "-I"):
-            del_cmd[i] = "-D"
-            break
-    ran_once = False
+    if dry:
+        print("(dry) would delete:", cmd)
+        return True
+
+    def try_check_and_delete(base_cmd: list) -> bool:
+        # Replace first -A/-I with -C to check existence
+        check_cmd = base_cmd.copy()
+        for i, t in enumerate(check_cmd):
+            if t in ("-A", "-I"):
+                check_cmd[i] = "-C"
+                break
+        try:
+            run(check_cmd, check=True)
+            # exists -> delete using -D
+            del_cmd = base_cmd.copy()
+            for i, t in enumerate(del_cmd):
+                if t in ("-A", "-I"):
+                    del_cmd[i] = "-D"
+                    break
+            run(del_cmd, check=True)
+            return True
+        except Exception:
+            return False
+
+    # 1) try direct check+delete (preserves comments)
     try:
-        run(del_cmd, check=False, dry=dry)
-        ran_once = True
+        if try_check_and_delete(cmd):
+            return True
     except Exception:
         pass
 
-    # If the command included a comment match, try again removing the comment parts
-    if any(tok == "--comment" for tok in cmd):
-        no_comment = []
-        skip_next = False
-        i = 0
-        while i < len(cmd):
-            tok = cmd[i]
-            if tok == "-m" and i + 1 < len(cmd) and cmd[i+1] == "comment":
-                # skip -m comment --comment <text>
-                i += 4
-                continue
-            no_comment.append(tok)
-            i += 1
-        # now replace -A/-I -> -D in no_comment
-        del2 = no_comment.copy()
-        for i, t in enumerate(del2):
-            if t in ("-A", "-I"):
-                del2[i] = "-D"
-                break
+    # 2) inspect current iptables -S for a matching rule line and delete that exact line
+    import shlex
+    table = 'filter'
+    if '-t' in cmd:
         try:
-            run(del2, check=False, dry=dry)
-            ran_once = True
+            t_idx = cmd.index('-t')
+            table = cmd[t_idx + 1]
         except Exception:
-            pass
+            table = 'filter'
 
-    return ran_once
+    try:
+        out = subprocess.run(['iptables', '-t', table, '-S'], capture_output=True, text=True)
+        rules_text = out.stdout or ''
+    except Exception:
+        rules_text = ''
+
+    # build key tokens to match (ignore comment tokens and iptables binary/table markers)
+    key_tokens = []
+    skip_next = False
+    for i, t in enumerate(cmd):
+        if skip_next:
+            skip_next = False
+            continue
+        if t == 'iptables':
+            continue
+        if t == '-t':
+            skip_next = True
+            continue
+        if t in ('-A', '-I', '-D'):
+            continue
+        if t == '-m' and i + 1 < len(cmd) and cmd[i + 1] == 'comment':
+            skip_next = True
+            continue
+        if t == '--comment':
+            skip_next = True
+            continue
+        key_tokens.append(t)
+
+    for line in rules_text.splitlines():
+        if not line.strip():
+            continue
+        ok = True
+        for kt in key_tokens:
+            if kt not in line:
+                ok = False
+                break
+        if not ok:
+            continue
+        # transform '-A' into '-D' and attempt deletion using shell-split tokens
+        try:
+            parts = shlex.split(line)
+            if parts[0] == '-A':
+                parts[0] = '-D'
+            del_cmd = ['iptables', '-t', table] + parts
+            try:
+                run(del_cmd, check=True)
+                return True
+            except Exception:
+                # try without explicit table prefix
+                try:
+                    run(['iptables'] + parts, check=True)
+                    return True
+                except Exception:
+                    continue
+        except Exception:
+            continue
+
+    # 3) last resort: strip comment matchers and try a -D
+    no_comment = []
+    i = 0
+    while i < len(cmd):
+        tok = cmd[i]
+        if tok == '-m' and i + 1 < len(cmd) and cmd[i + 1] == 'comment':
+            i += 4
+            continue
+        if tok == '--comment':
+            i += 2
+            continue
+        no_comment.append(tok)
+        i += 1
+
+    # replace -A/-I with -D in no_comment and try
+    for i, t in enumerate(no_comment):
+        if t in ('-A', '-I'):
+            no_comment[i] = '-D'
+            break
+    try:
+        run(no_comment, check=True)
+        return True
+    except Exception:
+        return False
 
 
 # ---------------------------------------------------------------------------

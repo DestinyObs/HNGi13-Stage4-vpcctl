@@ -96,7 +96,30 @@ echo "--- Step 7: peer VPCs (public CIDRs) ---"
 logcmd sudo python3 "$REPO_ROOT/$PY" peer t1_vpc t2_vpc --allow-cidrs 10.30.1.0/24,10.40.1.0/24
 
 echo "--- Step 8: apply sample policy to t1_vpc ---"
-logcmd sudo python3 "$REPO_ROOT/$PY" apply-policy t1_vpc "$REPO_ROOT/policy_examples/example_ingress_egress_policy.json"
+# Discover the actual network CIDR for the t1_vpc public subnet and generate
+# a temporary policy file that targets that subnet so `apply-policy` is exercised.
+T1_ADDR_CIDR=$(sudo ip netns exec ns-t1_vpc-public ip -4 -o addr show dev v-t1-vpc-public | awk '{print $4}' | head -n1 || true)
+if [[ -n "$T1_ADDR_CIDR" ]]; then
+  T1_NET=$(python3 - <<PY
+import ipaddress,sys
+addr=sys.argv[1]
+print(ipaddress.ip_network(addr, strict=False))
+PY
+  "$T1_ADDR_CIDR")
+  POLICY_TMP="$OUTDIR/policy_t1_vpc.json"
+  cat > "$POLICY_TMP" <<JSON
+{
+  "subnet": "$T1_NET",
+  "ingress": [ { "port": 80, "protocol": "tcp", "action": "allow" } ],
+  "egress": [ { "port": 80, "protocol": "tcp", "action": "allow" } ]
+}
+JSON
+  echo "Applying generated policy $POLICY_TMP (targets $T1_NET)" | tee -a "$OUTDIR/commands.log"
+  logcmd sudo python3 "$REPO_ROOT/$PY" apply-policy t1_vpc "$POLICY_TMP"
+else
+  echo "Could not determine t1_vpc public address; applying example policy file instead" | tee -a "$OUTDIR/commands.log"
+  logcmd sudo python3 "$REPO_ROOT/$PY" apply-policy t1_vpc "$REPO_ROOT/policy_examples/example_ingress_egress_policy.json"
+fi
 
 echo "--- Step 9: capture snapshots (ip netns, ip addr, iptables) ---"
 sudo ip netns list | tee "$OUTDIR/ip_netns_list.txt"
@@ -107,7 +130,20 @@ sudo iptables -t nat -S | tee "$OUTDIR/iptables_nat_rules.txt"
 sudo iptables -S "vpc-t1_vpc" 2>/dev/null | tee "$OUTDIR/iptables_vpc-t1_vpc.txt" || true
 
 echo "--- Step 10: connectivity tests (curl from t2->t1 and local namespace tests) ---"
-sudo ip netns exec ns-t2_vpc-public curl -sS --max-time 5 http://10.30.1.10:8080/ -o "$OUTDIR/curl_t2_to_t1_body.html" || echo "curl failed" | tee -a "$OUTDIR/connectivity.txt"
+T1_IP=""
+if [[ -n "${T1_ADDR_CIDR:-}" ]]; then
+  T1_IP=$(echo "$T1_ADDR_CIDR" | cut -d/ -f1)
+else
+  # fallback: try to read from namespace directly
+  T1_IP=$(sudo ip netns exec ns-t1_vpc-public ip -4 -o addr show dev v-t1-vpc-public | awk '{print $4}' | cut -d/ -f1 | head -n1 || true)
+fi
+
+if [[ -n "$T1_IP" ]]; then
+  echo "Curling http://$T1_IP:8080 from ns-t2_vpc-public" | tee -a "$OUTDIR/commands.log"
+  sudo ip netns exec ns-t2_vpc-public curl -sS --max-time 5 "http://${T1_IP}:8080/" -o "$OUTDIR/curl_t2_to_t1_body.html" || echo "curl failed" | tee -a "$OUTDIR/connectivity.txt"
+else
+  echo "Could not determine t1_vpc public IP for connectivity test" | tee -a "$OUTDIR/connectivity.txt"
+fi
 
 echo "--- Step 11: stop apps and cleanup (unless --keep) ---"
 if [[ $KEEP -eq 0 ]]; then
@@ -120,4 +156,34 @@ else
 fi
 
 echo "Acceptance test complete. Outputs are in: $OUTDIR"
-echo "If you want me to open/parse those outputs and produce a PASS/FAIL matrix, upload the directory or paste its key files and I'll analyze them." 
+echo "If you want me to open/parse those outputs and produce a PASS/FAIL matrix, upload the directory or paste its key files and I'll analyze them."
+
+echo "--- Step 12: Basic PASS/FAIL analysis ---"
+PASSFAIL="$OUTDIR/passfail.txt"
+echo "Acceptance test analysis" > "$PASSFAIL"
+
+# Check namespaces
+echo -n "Namespaces: " >> "$PASSFAIL"
+if sudo ip netns list | grep -q ns-t1_vpc-public && sudo ip netns list | grep -q ns-t2_vpc-public; then
+  echo "OK" >> "$PASSFAIL"
+else
+  echo "MISSING" >> "$PASSFAIL"
+fi
+
+# Check HTTP servers started (look for saved PID lines in commands.log or processes)
+echo -n "HTTP servers: " >> "$PASSFAIL"
+if grep -q "HTTP server started" "$OUTDIR/commands.log" || (pgrep -f "python3 -m http.server" >/dev/null 2>&1); then
+  echo "OK" >> "$PASSFAIL"
+else
+  echo "MISSING" >> "$PASSFAIL"
+fi
+
+# Check connectivity result
+echo -n "Connectivity (t2 -> t1 HTTP): " >> "$PASSFAIL"
+if [[ -s "$OUTDIR/curl_t2_to_t1_body.html" ]]; then
+  echo "OK" >> "$PASSFAIL"
+else
+  echo "FAIL" >> "$PASSFAIL"
+fi
+
+echo "PASS/FAIL report written to: $PASSFAIL"
