@@ -331,7 +331,7 @@ sudo yum install -y python3 iproute iptables curl tcpdump bridge-utils
 
 **Option A: Clone from GitHub**
 ```bash
-git clone https://github.com/YourUsername/vpcctl.git
+git clone https://github.com/DestinyObs/HNGi13-Stage4-vpcctl/
 cd vpcctl
 ```
 
