@@ -1,0 +1,9 @@
+net.ipv4.ip_forward = 1
+iptables: Chain already exists.
+>>> ip link add name br-t2-vpc type bridge
+>>> ip link set br-t2-vpc up
+>>> sysctl -w net.ipv4.ip_forward=1
+>>> iptables -N vpc-t2-vpc
+iptables: rule exists, skipping: iptables -I FORWARD -i br-t2-vpc -m comment --comment vpcctl:t2_vpc:jump -j vpc-t2-vpc
+>>> iptables -A vpc-t2-vpc -s 10.40.0.0/16 -d 10.40.0.0/16 -m comment --comment vpcctl:t2_vpc:intra -j ACCEPT
+Created VPC 't2_vpc' with bridge 'br-t2-vpc' and CIDR 10.40.0.0/16

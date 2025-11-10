@@ -1,0 +1,2 @@
+Starting HTTP server in namespace ns-t1_vpc-private on port 8081
+HTTP server started in namespace ns-t1_vpc-private; pid=17816; logs: /tmp/vpcctl-ns-t1_vpc-private-http.log
