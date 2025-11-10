@@ -944,14 +944,25 @@ def run_demo(args):
 
 
 def enable_nat(args):
-    """Enable NAT (MASQUERADE) for a VPC's bridge via given internet interface.
+    """Enable NAT (MASQUERADE) for a VPC via a host interface.
 
-    Example: vpcctl enable-nat myvpc eth0
+    By default, NAT is applied only to subnets named 'public' (case-insensitive)
+    within the VPC, matching the common cloud convention that only public
+    subnets have outbound internet access. You can target a specific subnet
+    using --subnet, or use --all-subnets to NAT the entire VPC.
+
+    Example:
+      vpcctl enable-nat myvpc --interface eth0          # NAT public subnets only
+      vpcctl enable-nat myvpc --interface eth0 --subnet public
+      vpcctl enable-nat myvpc --interface eth0 --all-subnets
     """
     require_root()
     name = args.name
     # accept either positional iface (legacy) or --interface flag
     intf = getattr(args, 'iface_flag', None) or getattr(args, 'iface', None)
+    # optional targeting controls
+    target_subnet = getattr(args, 'subnet', None)
+    all_subnets = getattr(args, 'all_subnets', False)
     dry = args.dry
 
     if not vpc_exists(name):
@@ -964,27 +975,51 @@ def enable_nat(args):
     # enable forwarding
     run(["sysctl", "-w", "net.ipv4.ip_forward=1"], dry=dry)
 
-    # add MASQUERADE rule for traffic from VPC CIDR going out via interface
-    cidr = meta.get("cidr")
-    # try to add MASQUERADE rule for traffic from VPC CIDR going out via interface
-    cidr = meta.get("cidr")
-    nat_cmd = ["iptables", "-t", "nat", "-A", "POSTROUTING", "-s", cidr, "-o", intf, "-j", "MASQUERADE"]
-    if _add_iptables_rule(nat_cmd, comment=f"vpcctl:{name}:nat", dry=dry):
-        meta.setdefault("host_iptables", []).append(_insert_comment_into_cmd(nat_cmd, f"vpcctl:{name}:nat"))
+    # Determine which CIDRs to NAT
+    cidrs_to_nat = []
+    if all_subnets:
+        # NAT entire VPC (all subnets)
+        cidrs_to_nat = [s.get("cidr") for s in meta.get("subnets", []) if s.get("cidr")]
+        # if no subnets recorded yet, fall back to the whole VPC CIDR
+        if not cidrs_to_nat and meta.get("cidr"):
+            cidrs_to_nat = [meta.get("cidr")]
+    elif target_subnet:
+        for s in meta.get("subnets", []):
+            if s.get("name") == target_subnet and s.get("cidr"):
+                cidrs_to_nat.append(s.get("cidr"))
+                break
+    else:
+        # Default behavior: NAT only subnets named 'public'
+        for s in meta.get("subnets", []):
+            if str(s.get("name", "")).lower() == "public" and s.get("cidr"):
+                cidrs_to_nat.append(s.get("cidr"))
 
-    # ensure iptables FORWARD policy allows established connections (best-effort)
-    fwd1 = ["iptables", "-A", "FORWARD", "-i", bridge, "-o", intf, "-j", "ACCEPT"]
-    if _add_iptables_rule(fwd1, comment=f"vpcctl:{name}:fwd-out", dry=dry):
-        meta.setdefault("host_iptables", []).append(_insert_comment_into_cmd(fwd1, f"vpcctl:{name}:fwd-out"))
+    if not cidrs_to_nat:
+        # Nothing matched; be explicit for the user
+        print("No subnets matched for NAT (try --subnet <name> or --all-subnets). Leaving NAT unchanged.")
+    else:
+        for scidr in cidrs_to_nat:
+            # MASQUERADE rule per targeted subnet CIDR
+            nat_cmd = ["iptables", "-t", "nat", "-A", "POSTROUTING", "-s", scidr, "-o", intf, "-j", "MASQUERADE"]
+            if _add_iptables_rule(nat_cmd, comment=f"vpcctl:{name}:nat:{scidr}", dry=dry):
+                meta.setdefault("host_iptables", []).append(_insert_comment_into_cmd(nat_cmd, f"vpcctl:{name}:nat:{scidr}"))
 
-    fwd2 = ["iptables", "-A", "FORWARD", "-i", intf, "-o", bridge, "-m", "state", "--state", "ESTABLISHED,RELATED", "-j", "ACCEPT"]
-    if _add_iptables_rule(fwd2, comment=f"vpcctl:{name}:fwd-in", dry=dry):
-        meta.setdefault("host_iptables", []).append(_insert_comment_into_cmd(fwd2, f"vpcctl:{name}:fwd-in"))
+        # ensure iptables FORWARD policy allows traffic out and established traffic back
+        fwd_out = ["iptables", "-A", "FORWARD", "-i", bridge, "-o", intf, "-j", "ACCEPT"]
+        if _add_iptables_rule(fwd_out, comment=f"vpcctl:{name}:fwd-out", dry=dry):
+            meta.setdefault("host_iptables", []).append(_insert_comment_into_cmd(fwd_out, f"vpcctl:{name}:fwd-out"))
+
+        fwd_in = ["iptables", "-A", "FORWARD", "-i", intf, "-o", bridge, "-m", "state", "--state", "ESTABLISHED,RELATED", "-j", "ACCEPT"]
+        if _add_iptables_rule(fwd_in, comment=f"vpcctl:{name}:fwd-in", dry=dry):
+            meta.setdefault("host_iptables", []).append(_insert_comment_into_cmd(fwd_in, f"vpcctl:{name}:fwd-in"))
 
     # record NAT config
-    meta["nat"] = {"interface": intf}
+    meta["nat"] = {"interface": intf, "cidrs": cidrs_to_nat}
     save_vpc_meta(name, meta)
-    print(f"Enabled NAT for VPC '{name}' via interface '{intf}'")
+    if cidrs_to_nat:
+        print(f"Enabled NAT for VPC '{name}' via interface '{intf}' for CIDRs: {cidrs_to_nat}")
+    else:
+        print(f"No CIDRs were NATed for VPC '{name}' (see message above)")
 
 
 
@@ -1244,6 +1279,8 @@ def build_parser():
     # accept positional iface (legacy) or --interface flag for friendliness
     p_nat.add_argument("iface", nargs="?", help="Host outbound interface (positional, legacy, e.g., eth0)")
     p_nat.add_argument("--interface", dest="iface_flag", help="Host outbound interface (preferred flag, e.g., eth0)")
+    p_nat.add_argument("--subnet", dest="subnet", help="Name of a specific subnet to NAT (default: subnets named 'public')")
+    p_nat.add_argument("--all-subnets", dest="all_subnets", action="store_true", help="Apply NAT to all subnets in the VPC")
 
     p_peer = sub.add_parser("peer", help="Create a peering connection between two VPCs")
     p_peer.add_argument("vpc1")
