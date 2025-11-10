@@ -1,0 +1,39 @@
+{
+  "name": "test_vpc",
+  "cidr": "10.99.0.0/16",
+  "bridge": "br-test-vpc",
+  "subnets": [],
+  "host_iptables": [
+    [
+      "iptables",
+      "-I",
+      "FORWARD",
+      "-i",
+      "br-test-vpc",
+      "-m",
+      "comment",
+      "--comment",
+      "vpcctl:test_vpc:jump",
+      "-j",
+      "vpc-test-vpc"
+    ],
+    [
+      "iptables",
+      "-A",
+      "vpc-test-vpc",
+      "-s",
+      "10.99.0.0/16",
+      "-d",
+      "10.99.0.0/16",
+      "-m",
+      "comment",
+      "--comment",
+      "vpcctl:test_vpc:intra",
+      "-j",
+      "ACCEPT"
+    ]
+  ],
+  "chain": "vpc-test-vpc",
+  "apps": [],
+  "peers": []
+}
