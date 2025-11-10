@@ -1,2 +1,0 @@
->>> kill -TERM 8086
-Stopped apps: [{'ns': 'ns-t2_vpc-public', 'port': 8080, 'pid': 8086, 'cmd': ['ip', 'netns', 'exec', 'ns-t2_vpc-public', 'python3', '-m', 'http.server', '8080']}]

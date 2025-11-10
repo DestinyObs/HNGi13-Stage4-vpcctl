@@ -1,5 +1,0 @@
-usage: vpcctl [-h] [--dry-run]
-              {create,add-subnet,list,inspect,delete,enable-nat,peer,apply-policy,deploy-app,stop-app,test-connectivity,cleanup-all,verify,run-demo,flag-check}
-              ...
-
-Minimal VPC controller using Linux namespaces and bridges

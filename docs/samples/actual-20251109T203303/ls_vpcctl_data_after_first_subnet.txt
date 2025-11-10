@@ -1,4 +1,0 @@
-total 12
-drwxr-xr-x 2 root   root   4096 Nov  9 20:33 .
-drwxrwxr-x 8 ubuntu ubuntu 4096 Nov  9 20:33 ..
--rw-r--r-- 1 root   root    604 Nov  9 20:34 vpc_stage4-a.json

@@ -1,2 +1,0 @@
-curl: (6) Could not resolve host: httpbin.org
-PASS: Private outbound blocked as expected

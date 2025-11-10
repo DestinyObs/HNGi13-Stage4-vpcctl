@@ -1,2 +1,0 @@
->>> ip netns add ns-stage4-a-public2
->>> ip link add v-stage4-a-publ type veth peer name vbr-stage4-a-pu

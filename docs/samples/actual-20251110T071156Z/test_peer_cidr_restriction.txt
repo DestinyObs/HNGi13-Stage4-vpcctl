@@ -1,2 +1,0 @@
-curl: (28) Connection timed out after 5002 milliseconds
-PASS: Non-allowed CIDR blocked
