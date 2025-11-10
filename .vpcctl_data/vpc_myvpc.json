@@ -1,0 +1,39 @@
+{
+  "name": "myvpc",
+  "cidr": "10.10.0.0/16",
+  "bridge": "br-myvpc",
+  "subnets": [],
+  "host_iptables": [
+    [
+      "iptables",
+      "-I",
+      "FORWARD",
+      "-i",
+      "br-myvpc",
+      "-m",
+      "comment",
+      "--comment",
+      "vpcctl:myvpc:jump",
+      "-j",
+      "vpc-myvpc"
+    ],
+    [
+      "iptables",
+      "-A",
+      "vpc-myvpc",
+      "-s",
+      "10.10.0.0/16",
+      "-d",
+      "10.10.0.0/16",
+      "-m",
+      "comment",
+      "--comment",
+      "vpcctl:myvpc:intra",
+      "-j",
+      "ACCEPT"
+    ]
+  ],
+  "chain": "vpc-myvpc",
+  "apps": [],
+  "peers": []
+}
