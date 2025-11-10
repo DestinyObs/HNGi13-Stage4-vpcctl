@@ -490,7 +490,7 @@ sudo vpcctl enable-nat blog --interface eth0
 
 From the web server namespace:
 ```bash
-sudo ip netns exec ns-blog-webserver curl -s http://example.com | head -n 5
+sudo ip netns exec ns-blog-webserver curl -s http://10.20.1.2:8080 | head -n 5
 ```
 
 **Expected result:** HTML from example.com
