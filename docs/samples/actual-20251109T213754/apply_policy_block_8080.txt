@@ -1,0 +1,5 @@
+>>> ip netns exec ns-stage4-b-public iptables -F
+>>> ip netns exec ns-stage4-b-public iptables -A INPUT -i lo -j ACCEPT
+>>> ip netns exec ns-stage4-b-public iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+>>> ip netns exec ns-stage4-b-public iptables -A INPUT -p tcp --dport 8080 -j DROP
+Applied policy to subnet 10.50.1.0/24 (namespace ns-stage4-b-public)

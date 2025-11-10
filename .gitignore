@@ -1,6 +1,6 @@
 # Runtime & local artifacts
 #.vpcctl_data/
-docs/samples/actual-*/
+#docs/samples/actual-*/
 __pycache__/
 *.pyc
 *.pyo

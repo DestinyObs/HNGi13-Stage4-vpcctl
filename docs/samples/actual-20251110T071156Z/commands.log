@@ -1,0 +1,13 @@
++ sudo vpcctl create t1_vpc --cidr 10.30.0.0/16
++ sudo vpcctl add-subnet t1_vpc public --cidr 10.30.1.0/24
++ sudo vpcctl add-subnet t1_vpc private --cidr 10.30.2.0/24
++ sudo vpcctl list
++ sudo vpcctl inspect t1_vpc
++ sudo vpcctl deploy-app t1_vpc public --port 8080
++ sudo vpcctl deploy-app t1_vpc private --port 8081
++ sudo vpcctl enable-nat t1_vpc --interface enX0
++ sudo vpcctl create t2_vpc --cidr 10.40.0.0/16
++ sudo vpcctl add-subnet t2_vpc public --cidr 10.40.1.0/24
++ sudo vpcctl deploy-app t2_vpc public --port 8080
++ sudo vpcctl peer t1_vpc t2_vpc --allow-cidrs 10.30.1.0/24,10.40.1.0/24
++ sudo vpcctl apply-policy t1_vpc /home/ubuntu/HNGi13-Stage4-vpcctl/docs/samples/actual-20251110T071156Z/test_policy_deny_22.json

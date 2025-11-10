@@ -1,0 +1,13 @@
++ sudo python3 /home/ubuntu/HNGi13-Stage4-vpcctl/vpcctl.py create t1_vpc --cidr 10.30.0.0/16
++ sudo python3 /home/ubuntu/HNGi13-Stage4-vpcctl/vpcctl.py add-subnet t1_vpc public --cidr 10.30.1.0/24
++ sudo python3 /home/ubuntu/HNGi13-Stage4-vpcctl/vpcctl.py add-subnet t1_vpc private --cidr 10.30.2.0/24
++ sudo python3 /home/ubuntu/HNGi13-Stage4-vpcctl/vpcctl.py deploy-app t1_vpc public --port 8080
++ sudo python3 /home/ubuntu/HNGi13-Stage4-vpcctl/vpcctl.py enable-nat t1_vpc --interface enX0
++ sudo python3 /home/ubuntu/HNGi13-Stage4-vpcctl/vpcctl.py create t2_vpc --cidr 10.40.0.0/16
++ sudo python3 /home/ubuntu/HNGi13-Stage4-vpcctl/vpcctl.py add-subnet t2_vpc public --cidr 10.40.1.0/24
++ sudo python3 /home/ubuntu/HNGi13-Stage4-vpcctl/vpcctl.py deploy-app t2_vpc public --port 8080
++ sudo python3 /home/ubuntu/HNGi13-Stage4-vpcctl/vpcctl.py peer t1_vpc t2_vpc --allow-cidrs 10.30.1.0/24,10.40.1.0/24
+Applying generated policy /home/ubuntu/HNGi13-Stage4-vpcctl/docs/samples/actual-20251109T100949Z/policy_t1_vpc.json (targets 10.30.1.0/24)
++ sudo python3 /home/ubuntu/HNGi13-Stage4-vpcctl/vpcctl.py apply-policy t1_vpc /home/ubuntu/HNGi13-Stage4-vpcctl/docs/samples/actual-20251109T100949Z/policy_t1_vpc.json
+Curling http://10.30.1.2:8080 from ns-t2_vpc-public
+--keep specified; leaving resources intact for debugging

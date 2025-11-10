@@ -1,0 +1,11 @@
+>>> ip netns add ns-t1_vpc-public
+>>> ip link add v-t1-vpc-public type veth peer name vbr-t1-vpc-publ
+>>> ip link set vbr-t1-vpc-publ master br-t1-vpc
+>>> ip link set vbr-t1-vpc-publ up
+>>> ip link set v-t1-vpc-public netns ns-t1_vpc-public
+>>> ip addr add 10.30.1.1/24 dev br-t1-vpc
+>>> ip netns exec ns-t1_vpc-public ip addr add 10.30.1.2/24 dev v-t1-vpc-public
+>>> ip netns exec ns-t1_vpc-public ip link set v-t1-vpc-public up
+>>> ip netns exec ns-t1_vpc-public ip link set lo up
+>>> ip netns exec ns-t1_vpc-public ip route add default via 10.30.1.1
+Created subnet 'public' (10.30.1.0/24) in VPC 't1_vpc' with namespace 'ns-t1_vpc-public' and gateway 10.30.1.1

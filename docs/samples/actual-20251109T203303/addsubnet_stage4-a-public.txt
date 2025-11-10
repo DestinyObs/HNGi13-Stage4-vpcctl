@@ -1,0 +1,11 @@
+>>> ip netns add ns-stage4-a-public
+>>> ip link add v-stage4-a-publ type veth peer name vbr-stage4-a-pu
+>>> ip link set vbr-stage4-a-pu master br-stage4-a
+>>> ip link set vbr-stage4-a-pu up
+>>> ip link set v-stage4-a-publ netns ns-stage4-a-public
+>>> ip addr add 10.40.1.1/24 dev br-stage4-a
+>>> ip netns exec ns-stage4-a-public ip addr add 10.40.1.2/24 dev v-stage4-a-publ
+>>> ip netns exec ns-stage4-a-public ip link set v-stage4-a-publ up
+>>> ip netns exec ns-stage4-a-public ip link set lo up
+>>> ip netns exec ns-stage4-a-public ip route add default via 10.40.1.1
+Created subnet 'public' (10.40.1.0/24) in VPC 'stage4-a' with namespace 'ns-stage4-a-public' and gateway 10.40.1.1

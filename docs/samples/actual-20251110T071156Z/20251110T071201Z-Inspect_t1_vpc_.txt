@@ -1,0 +1,56 @@
+{
+  "name": "t1_vpc",
+  "cidr": "10.30.0.0/16",
+  "bridge": "br-t1-vpc",
+  "subnets": [
+    {
+      "name": "public",
+      "cidr": "10.30.1.0/24",
+      "ns": "ns-t1_vpc-public",
+      "gw": "10.30.1.1",
+      "host_ip": "10.30.1.2",
+      "veth": "v-t1-vpc-public"
+    },
+    {
+      "name": "private",
+      "cidr": "10.30.2.0/24",
+      "ns": "ns-t1_vpc-private",
+      "gw": "10.30.2.1",
+      "host_ip": "10.30.2.2",
+      "veth": "v-t1-vpc-privat"
+    }
+  ],
+  "host_iptables": [
+    [
+      "iptables",
+      "-I",
+      "FORWARD",
+      "-i",
+      "br-t1-vpc",
+      "-m",
+      "comment",
+      "--comment",
+      "vpcctl:t1_vpc:jump",
+      "-j",
+      "vpc-t1-vpc"
+    ],
+    [
+      "iptables",
+      "-A",
+      "vpc-t1-vpc",
+      "-s",
+      "10.30.0.0/16",
+      "-d",
+      "10.30.0.0/16",
+      "-m",
+      "comment",
+      "--comment",
+      "vpcctl:t1_vpc:intra",
+      "-j",
+      "ACCEPT"
+    ]
+  ],
+  "chain": "vpc-t1-vpc",
+  "apps": [],
+  "peers": []
+}

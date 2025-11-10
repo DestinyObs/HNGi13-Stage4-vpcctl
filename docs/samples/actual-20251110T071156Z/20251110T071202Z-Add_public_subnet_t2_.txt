@@ -1,0 +1,11 @@
+>>> ip netns add ns-t2_vpc-public
+>>> ip link add v-t2-vpc-public type veth peer name vbr-t2-vpc-publ
+>>> ip link set vbr-t2-vpc-publ master br-t2-vpc
+>>> ip link set vbr-t2-vpc-publ up
+>>> ip link set v-t2-vpc-public netns ns-t2_vpc-public
+>>> ip addr add 10.40.1.1/24 dev br-t2-vpc
+>>> ip netns exec ns-t2_vpc-public ip addr add 10.40.1.2/24 dev v-t2-vpc-public
+>>> ip netns exec ns-t2_vpc-public ip link set v-t2-vpc-public up
+>>> ip netns exec ns-t2_vpc-public ip link set lo up
+>>> ip netns exec ns-t2_vpc-public ip route add default via 10.40.1.1
+Created subnet 'public' (10.40.1.0/24) in VPC 't2_vpc' with namespace 'ns-t2_vpc-public' and gateway 10.40.1.1

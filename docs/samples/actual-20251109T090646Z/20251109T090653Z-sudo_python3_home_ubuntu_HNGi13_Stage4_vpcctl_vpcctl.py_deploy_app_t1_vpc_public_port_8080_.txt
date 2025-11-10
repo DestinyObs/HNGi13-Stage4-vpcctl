@@ -1,0 +1,2 @@
+Starting HTTP server in namespace ns-t1_vpc-public on port 8080
+HTTP server started in namespace ns-t1_vpc-public; pid=7990; logs: /tmp/vpcctl-ns-t1_vpc-public-http.log

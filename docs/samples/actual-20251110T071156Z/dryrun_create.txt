@@ -1,0 +1,7 @@
+>>> ip link add name br-test-vpc type bridge
+>>> ip link set br-test-vpc up
+>>> sysctl -w net.ipv4.ip_forward=1
+>>> iptables -N vpc-test-vpc
+>>> iptables -I FORWARD -i br-test-vpc -m comment --comment vpcctl:test_vpc:jump -j vpc-test-vpc
+>>> iptables -A vpc-test-vpc -s 10.99.0.0/16 -d 10.99.0.0/16 -m comment --comment vpcctl:test_vpc:intra -j ACCEPT
+Created VPC 'test_vpc' with bridge 'br-test-vpc' and CIDR 10.99.0.0/16

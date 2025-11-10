@@ -1,0 +1,11 @@
+>>> ip netns add ns-t1_vpc-private
+>>> ip link add v-t1-vpc-privat type veth peer name vbr-t1-vpc-priv
+>>> ip link set vbr-t1-vpc-priv master br-t1-vpc
+>>> ip link set vbr-t1-vpc-priv up
+>>> ip link set v-t1-vpc-privat netns ns-t1_vpc-private
+>>> ip addr add 10.30.2.1/24 dev br-t1-vpc
+>>> ip netns exec ns-t1_vpc-private ip addr add 10.30.2.2/24 dev v-t1-vpc-privat
+>>> ip netns exec ns-t1_vpc-private ip link set v-t1-vpc-privat up
+>>> ip netns exec ns-t1_vpc-private ip link set lo up
+>>> ip netns exec ns-t1_vpc-private ip route add default via 10.30.2.1
+Created subnet 'private' (10.30.2.0/24) in VPC 't1_vpc' with namespace 'ns-t1_vpc-private' and gateway 10.30.2.1

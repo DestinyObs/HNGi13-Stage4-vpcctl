@@ -1,0 +1,8 @@
+net.ipv4.ip_forward = 1
+>>> ip link add name br-stage4-b type bridge
+>>> ip link set br-stage4-b up
+>>> sysctl -w net.ipv4.ip_forward=1
+>>> iptables -N vpc-stage4-b
+>>> iptables -I FORWARD -i br-stage4-b -m comment --comment vpcctl:stage4-b:jump -j vpc-stage4-b
+>>> iptables -A vpc-stage4-b -s 10.50.0.0/16 -d 10.50.0.0/16 -m comment --comment vpcctl:stage4-b:intra -j ACCEPT
+Created VPC 'stage4-b' with bridge 'br-stage4-b' and CIDR 10.50.0.0/16

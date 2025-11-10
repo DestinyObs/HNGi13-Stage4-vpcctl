@@ -1,0 +1,2 @@
+Starting HTTP server in namespace ns-stage4-b-public on port 8080
+HTTP server started in namespace ns-stage4-b-public; pid=13653; logs: /tmp/vpcctl-ns-stage4-b-public-http.log

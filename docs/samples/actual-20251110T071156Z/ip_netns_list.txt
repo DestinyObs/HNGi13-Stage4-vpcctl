@@ -1,0 +1,3 @@
+ns-t2_vpc-public (id: 2)
+ns-t1_vpc-private (id: 1)
+ns-t1_vpc-public (id: 0)

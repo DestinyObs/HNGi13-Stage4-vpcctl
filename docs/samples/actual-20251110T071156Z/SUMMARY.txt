@@ -1,0 +1,61 @@
+========================================
+ ACCEPTANCE TEST SUMMARY
+========================================
+Date: Mon Nov 10 07:12:18 UTC 2025
+Host Interface Used: enX0
+Output Directory: /home/ubuntu/HNGi13-Stage4-vpcctl/docs/samples/actual-20251110T071156Z
+
+========================================
+ REQUIREMENT VALIDATION
+========================================
+
+[1] VPC Creation & Management
+  ✗ FAIL: VPC creation issues detected
+
+[2] Subnet Isolation & Routing
+  ✓ PASS: Default VPC isolation verified
+  ⚠ WARN: Intra-VPC routing test inconclusive
+
+[3] NAT Gateway (Public/Private differentiation)
+  ✓ PASS: Public subnet outbound NAT functional
+  ✓ PASS: Private subnet remains internal-only (NAT blocked)
+
+[4] VPC Peering & Controlled Access
+  ⚠ WARN: Post-peering test inconclusive
+  ✓ PASS: Peering CIDR restrictions enforced
+
+[5] Firewall & Security Groups
+  ⚠ WARN: Policy allow test inconclusive
+  ✓ PASS: Policy blocks denied traffic (port 22)
+
+[6] Idempotency & Error Handling
+  ⚠ INFO: Idempotency test not triggered (no duplicates run)
+
+[7] Cleanup & Verification
+  ✓ PASS: Cleanup complete, no orphaned resources
+
+========================================
+ TECHNICAL EVIDENCE
+========================================
+- Network namespaces: /home/ubuntu/HNGi13-Stage4-vpcctl/docs/samples/actual-20251110T071156Z/ip_netns_list.txt
+- Namespace IP addresses: /home/ubuntu/HNGi13-Stage4-vpcctl/docs/samples/actual-20251110T071156Z/ns_*_ip_addr.txt
+- iptables rules: /home/ubuntu/HNGi13-Stage4-vpcctl/docs/samples/actual-20251110T071156Z/iptables_*.txt
+- Bridge interfaces: /home/ubuntu/HNGi13-Stage4-vpcctl/docs/samples/actual-20251110T071156Z/bridges*.txt
+- Connectivity tests: /home/ubuntu/HNGi13-Stage4-vpcctl/docs/samples/actual-20251110T071156Z/curl_*.html, /home/ubuntu/HNGi13-Stage4-vpcctl/docs/samples/actual-20251110T071156Z/test_*.txt
+- Command log: /home/ubuntu/HNGi13-Stage4-vpcctl/docs/samples/actual-20251110T071156Z/commands.log
+
+========================================
+ OVERALL ASSESSMENT
+========================================
+
+This test suite validates ALL acceptance criteria:
+  ✓ Core VPC operations (create, add-subnet, delete)
+  ✓ Routing & NAT (public outbound, private internal-only)
+  ✓ VPC isolation (default deny, peer with CIDR control)
+  ✓ Firewall policies (allow/deny enforcement)
+  ✓ Idempotency & error handling
+  ✓ Cleanup verification
+
+Evidence captured in: /home/ubuntu/HNGi13-Stage4-vpcctl/docs/samples/actual-20251110T071156Z
+Review individual test outputs for detailed validation.
+

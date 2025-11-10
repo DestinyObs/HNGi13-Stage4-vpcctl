@@ -1,0 +1,11 @@
+iptables: Bad rule (does a matching rule exist in that chain?).
+iptables v1.8.10 (nf_tables):  CHAIN_DEL failed (Device or resource busy): chain vpc-t2-vpc
+>>> ip netns exec ns-t2_vpc-public iptables -F
+>>> ip netns exec ns-t2_vpc-public iptables -t nat -F
+>>> ip netns del ns-t2_vpc-public
+>>> ip link set br-t2-vpc down
+>>> ip link del br-t2-vpc type bridge
+>>> iptables -D FORWARD -i br-t2-vpc -j vpc-t2-vpc
+>>> iptables -F vpc-t2-vpc
+>>> iptables -X vpc-t2-vpc
+Deleted VPC 't2_vpc' and cleaned up resources
