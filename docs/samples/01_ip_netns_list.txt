@@ -1,6 +1,0 @@
-# Sample expected output: `ip netns list`
-# (example — replace names/IPs for your run)
-ns-t1_vpc-public
-ns-t2_vpc-public
-
-# Explanation: you should see one namespace per subnet created by `vpcctl`.
