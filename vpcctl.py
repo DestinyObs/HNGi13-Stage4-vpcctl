@@ -1361,7 +1361,7 @@ def main():
         deploy_app(args)
     elif args.cmd == "stop-app":
         stop_app(args)
-    elif args.cmd == "test-connectivity":
+    elif args.cmd == "test-connectivity": 
         test_connectivity(args)
     elif args.cmd == "cleanup-all":
         cleanup_all(args)
@@ -1372,7 +1372,6 @@ def main():
     elif args.cmd == "run-demo":
         run_demo(args)
     elif args.cmd == "flag-check":
-        # run parser-only checks to validate flag handling
         run_flag_check()
     else:
         print("No command given. Use --help for usage.")
