@@ -256,19 +256,6 @@ sudo iptables -t nat -L -n -v
 
 For more troubleshooting, see [docs/Documentation.md](docs/Documentation.md).
 
-## Contributing
-
-Contributions are welcome! Please:
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-When adding features, please update:
-- `docs/Documentation.md` with new commands/behavior
-- `docs/samples/` with example outputs
-
 ## License
 
 This project is open source and available under the MIT License.
@@ -278,5 +265,3 @@ This project is open source and available under the MIT License.
 Built for HNG Internship Stage 4 DevOps task. Demonstrates cloud networking concepts using Linux primitives.
 
 ---
-
-**Need help?** Check the [Documentation](docs/Documentation.md) or open an issue on GitHub.
