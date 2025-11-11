@@ -296,32 +296,35 @@ def add_subnet(args):
             return
         else:
             print(f"Subnet '{sub_name}' recorded but namespace missing; repairing…")
-    v_host_base = safe_ifname([vpc, sub_name], prefix="v-", maxlen=15)
-    v_peer_base = safe_ifname([vpc, sub_name], prefix="vbr-", maxlen=15)
+    v_host_base = f"v-{vpc}-{sub_name}".replace('/', '-')
+    v_peer_base = f"vbr-{vpc}-{sub_name}".replace('/', '-')
     run(["ip", "netns", "add", ns], dry=dry)
-    # Create veth pair with collision avoidance: if truncated names clash (e.g. public/private both -> '...-p'),
-    # retry with numeric suffixes up to 9. This prevents "File exists" errors when multiple subnets share
-    # leading characters that survive truncation.
-    v_host = v_host_base
-    v_peer = v_peer_base
+    # Collision avoidance: manual suffix insertion preserving uniqueness within 15 char Linux ifname limit.
+    # Earlier approach using safe_ifname truncated away numeric suffixes (e.g. both 'public' and 'private' -> 'vbr-prod-test-p').
+    # Here we truncate base keeping room for suffix explicitly.
     if not dry:
-        existing_links = subprocess.run(["ip", "link", "show"], capture_output=True, text=True).stdout
+        existing_links = subprocess.run(["ip", "link", "show"], capture_output=True, text=True).stdout.splitlines()
+        existing_names = {ln.split()[1].rstrip(':') for ln in existing_links if ln}
     else:
-        existing_links = ""
+        existing_names = set()
+    def mk_with_suffix(base: str, suffix: str) -> str:
+        limit = 15
+        if len(base) + len(suffix) <= limit:
+            return base + suffix
+        return base[:limit - len(suffix)] + suffix
     for attempt in range(10):
+        suffix = '' if attempt == 0 else str(attempt)
+        v_host = mk_with_suffix(v_host_base, suffix)
+        v_peer = mk_with_suffix(v_peer_base, suffix)
         try:
+            if v_host in existing_names or v_peer in existing_names:
+                raise subprocess.CalledProcessError(returncode=2, cmd=["ip","link","add",v_host])
             run(["ip", "link", "add", v_host, "type", "veth", "peer", "name", v_peer], dry=dry)
             break
-        except subprocess.CalledProcessError as e:
-            if "File exists" in str(e) or (not dry and (v_host in existing_links or v_peer in existing_links)):
-                if attempt == 9:
-                    raise
-                suffix = str(attempt + 1)
-                v_host = safe_ifname([vpc, sub_name, suffix], prefix="v-", maxlen=15)
-                v_peer = safe_ifname([vpc, sub_name, suffix], prefix="vbr-", maxlen=15)
-                continue
-            else:
+        except subprocess.CalledProcessError:
+            if attempt == 9:
                 raise
+            continue
     run(["ip", "link", "set", v_peer, "master", bridge], dry=dry)
     run(["ip", "link", "set", v_peer, "up"], dry=dry)
     run(["ip", "link", "set", v_host, "netns", ns], dry=dry)
