@@ -1005,72 +1005,13 @@ alias vpc='sudo vpcctl'```
 
 alias nsexec='sudo ip netns exec'
 
-``````bash
-
-sudo vpcctl apply-policy myapp web_policy.json
-
-Then:```
-
-```bash
-
-vpc list**Example 2: Database (allow only PostgreSQL, block everything else)**
-
-nsexec ns-myvpc-public curl http://10.10.2.2:8081```json
-
-```{
-
-  "subnet": "10.10.2.0/24",
-
-**Tip 3:** Use `jq` for pretty JSON output:  "ingress": [
-
-```bash    {"port": 5432, "protocol": "tcp", "action": "allow"}
-
-sudo apt install jq  ],
-
-sudo vpcctl inspect myvpc | jq '.'  "egress": [
-
-```    {"port": 80, "protocol": "tcp", "action": "allow"},
-
-    {"port": 443, "protocol": "tcp", "action": "allow"}
-
----  ]
-
-}
-
-
-
-
-
-**Author:** DestinyObs  **Actions:**
-
-**Tagline:** iDeploy | iSecure | iSustain  - `allow`: Permit traffic
-
-- `deny`: Block traffic
-
-Built for HNG Internship Stage 4 - DevOps Track
-
-**Protocols:**
-
-**GitHub Repository:** https://github.com/DestinyObs/HNGi13-Stage4-vpcctl- `tcp`: TCP traffic
-
-- `udp`: UDP traffic
-
----- `icmp`: Ping and ICMP
-
-
-
-**You're now ready to build your own VPCs on Linux!** 🎉---
-
-
+**You're now ready to build your own VPCs on Linux!** 🎉
 
 Start with the [Quick Start](#quick-start-your-first-vpc) section and work through each step. If you get stuck, check the [Troubleshooting](#troubleshooting) section or inspect your VPC with `sudo vpcctl inspect myvpc`.
 
 ### 8. `list` - List All VPCs
 
-
-
-Happy networking! 🚀**Purpose:** Show all VPCs you've created.
-
+**Purpose:** Show all VPCs you've created.
 
 **Syntax:**
 ```bash
