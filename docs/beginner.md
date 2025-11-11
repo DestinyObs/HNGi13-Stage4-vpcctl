@@ -299,20 +299,16 @@ Here's what happens:
    - Generates and applies default security policies
    - Updates the metadata JSON
 
+
 **Visual representation:**
-```
-Host Machine
-├─ Bridge: br-myapp (10.10.0.1)
-│  │
-│  ├─ veth ←→ Namespace: ns-myapp-web (10.10.1.2)
-│  │          └─ Your web application runs here
-│  │
-│  └─ veth ←→ Namespace: ns-myapp-db (10.10.2.2)
-│             └─ Your database runs here
-│
-└─ Physical Interface: eth0 (internet connection)
-   └─ iptables NAT rules forward traffic
-```
+
+![Single VPC Architecture](https://res.cloudinary.com/dvgk3fko3/image/upload/v1762848698/minimain_ulzxld.png)
+
+---
+
+**VPC Peering (VPC-to-VPC Connection):**
+
+![VPC Peering Architecture](https://res.cloudinary.com/dvgk3fko3/image/upload/v1762848698/peer_hw5cge.png)
 
 ---
 
