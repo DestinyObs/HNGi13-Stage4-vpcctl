@@ -892,7 +892,7 @@ sudo vpcctl add-subnet app1 web --cidr 10.10.1.0/24
 
 **Security:** Only the CIDRs you specify can communicate. Everything else is blocked.
 
-❌ **Bad:**
+ **Bad:**
 
 ```bash---
 
@@ -906,7 +906,7 @@ sudo vpcctl create app2 --cidr 10.0.0.0/24  # CONFLICT!
 
 **Purpose:** Apply custom ingress and egress firewall rules to a subnet.
 
-✅ **Good:**
+ **Good:**
 
 ```bash**Syntax:**
 
@@ -931,7 +931,7 @@ sudo vpcctl create prod --cidr 10.30.0.0/16
 
 **Policy file format:**
 
-❌ **Bad:**
+ **Bad:**
 
 ```bash
 sudo vpcctl create vpc1 --cidr 10.0.0.0/16
@@ -1174,142 +1174,6 @@ vpcctl --dry-run add-subnet test web --cidr 10.99.1.0/24
 - Learning what vpcctl does
 - Debugging issues
 - Verifying commands before execution
-
----
-
-## Advanced Scenarios
-
-### Scenario 1: Multi-Tier Web Application
-
-Build a realistic 3-tier architecture:
-
-```bash
-# Create VPC
-sudo vpcctl create webapp --cidr 10.30.0.0/16
-
-# Tier 1: Load balancer (public)
-sudo vpcctl add-subnet webapp loadbalancer --cidr 10.30.1.0/24
-
-# Tier 2: Application servers (private)
-sudo vpcctl add-subnet webapp appservers --cidr 10.30.2.0/24
-
-# Tier 3: Database (private)
-sudo vpcctl add-subnet webapp database --cidr 10.30.3.0/24
-
-# Deploy apps
-sudo vpcctl deploy-app webapp loadbalancer --port 80
-sudo vpcctl deploy-app webapp appservers --port 8080
-sudo vpcctl deploy-app webapp database --port 5432
-
-# Enable NAT for updates
-sudo vpcctl enable-nat webapp --interface eth0
-
-# Apply strict database policy
-cat > db_policy.json << 'EOF'
-{
-  "subnet": "10.30.3.0/24",
-  "ingress": [
-    {"port": 5432, "protocol": "tcp", "action": "allow"}
-  ],
-  "egress": [
-    {"port": 80, "protocol": "tcp", "action": "allow"},
-    {"port": 443, "protocol": "tcp", "action": "allow"}
-  ]
-}
-EOF
-
-sudo vpcctl apply-policy webapp db_policy.json
-
-# Test connectivity
-# Load balancer → App server
-sudo ip netns exec ns-webapp-loadbalancer curl http://10.30.2.2:8080
-
-# App server → Database
-sudo ip netns exec ns-webapp-appservers curl http://10.30.3.2:5432
-```
-
----
-
-### Scenario 2: Microservices with Service Mesh
-
-Simulate a microservices architecture:
-
-```bash
-# Create VPC for microservices
-sudo vpcctl create microservices --cidr 10.40.0.0/16
-
-# API Gateway (public)
-sudo vpcctl add-subnet microservices api-gateway --cidr 10.40.1.0/24
-
-# User Service (private)
-sudo vpcctl add-subnet microservices user-service --cidr 10.40.2.0/24
-
-# Order Service (private)
-sudo vpcctl add-subnet microservices order-service --cidr 10.40.3.0/24
-
-# Payment Service (private)
-sudo vpcctl add-subnet microservices payment-service --cidr 10.40.4.0/24
-
-# Shared Database
-sudo vpcctl add-subnet microservices shared-db --cidr 10.40.10.0/24
-
-# Deploy services
-sudo vpcctl deploy-app microservices api-gateway --port 8080
-sudo vpcctl deploy-app microservices user-service --port 8081
-sudo vpcctl deploy-app microservices order-service --port 8082
-sudo vpcctl deploy-app microservices payment-service --port 8083
-sudo vpcctl deploy-app microservices shared-db --port 5432
-
-# Enable internet access
-sudo vpcctl enable-nat microservices --interface eth0
-
-# Test inter-service communication
-sudo ip netns exec ns-microservices-api-gateway curl http://10.40.2.2:8081
-sudo ip netns exec ns-microservices-order-service curl http://10.40.10.2:5432
-```
-
----
-
-### Scenario 3: Development and Production Isolation with Peering
-
-```bash
-# Create Development VPC
-sudo vpcctl create dev --cidr 10.50.0.0/16
-sudo vpcctl add-subnet dev web --cidr 10.50.1.0/24
-sudo vpcctl add-subnet dev db --cidr 10.50.2.0/24
-
-# Create Production VPC
-sudo vpcctl create prod --cidr 10.60.0.0/16
-sudo vpcctl add-subnet prod web --cidr 10.60.1.0/24
-sudo vpcctl add-subnet prod db --cidr 10.60.2.0/24
-
-# Create Shared Services VPC (logging, monitoring)
-sudo vpcctl create shared --cidr 10.70.0.0/16
-sudo vpcctl add-subnet shared logging --cidr 10.70.1.0/24
-sudo vpcctl add-subnet shared monitoring --cidr 10.70.2.0/24
-
-# Peer dev and shared (so dev can send logs)
-sudo vpcctl peer dev shared --allow-cidrs 10.50.1.0/24,10.70.1.0/24
-
-# Peer prod and shared (so prod can send logs)
-sudo vpcctl peer prod shared --allow-cidrs 10.60.1.0/24,10.70.1.0/24
-
-# Note: dev and prod are NOT peered (isolated from each other)
-
-# Deploy apps
-sudo vpcctl deploy-app dev web --port 8080
-sudo vpcctl deploy-app prod web --port 8080
-sudo vpcctl deploy-app shared logging --port 9200
-
-# Test: dev can reach shared logging
-sudo ip netns exec ns-dev-web curl http://10.70.1.2:9200
-
-# Test: prod can reach shared logging
-sudo ip netns exec ns-prod-web curl http://10.70.1.2:9200
-
-# Verify: dev CANNOT reach prod (should fail)
-sudo ip netns exec ns-dev-web curl --max-time 5 http://10.60.1.2:8080 || echo "Correctly blocked!"
-```
 ---
 
 ## Troubleshooting Common Issues
@@ -1903,11 +1767,6 @@ sudo vpcctl create prod --cidr 10.30.0.0/16
 - iptables and netfilter
 - IP routing and forwarding
 - NAT and MASQUERADE
-
-**Recommended reading:**
-- `man ip-netns`
-- `man iptables`
-- `man ip-link`
 ---
 
 ## Conclusion
@@ -1937,11 +1796,12 @@ You now have a complete understanding of:
 ## Credits
 
 Author: DestinyObs  
-Tagline: iDeploy | iSecure | iSustain  
+Tagline: iBuild | iDeploy | iSecure | iSustain  
 GitHub: https://github.com/DestinyObs/HNGi13-Stage4-vpcctl
 
 ---
 
 **Happy networking!**
+
 
 **I'm DestinyObs — iDeploy | iSecure | iSustain!**
