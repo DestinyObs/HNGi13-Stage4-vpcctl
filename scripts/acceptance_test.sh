@@ -367,9 +367,8 @@ SUMMARY="$OUTDIR/SUMMARY.txt"
   echo ""
   
   echo "[1] VPC Creation & Management"
-  # Look for the create confirmation in any captured output file or the list output
-  if grep -ri "Created VPC" "$OUTDIR" 2>/dev/null || grep -qr "t1_vpc" "$OUTDIR" 2>/dev/null || grep -qi "created successfully" "$OUTDIR/commands.log" 2>/dev/null; then
-    echo "   PASS: VPC creation functional"
+  if grep -q "created successfully" "$OUTDIR/commands.log" 2>/dev/null; then
+    echo "  ✓ PASS: VPC creation functional"
   else
     echo "  ✗ FAIL: VPC creation issues detected"
   fi
