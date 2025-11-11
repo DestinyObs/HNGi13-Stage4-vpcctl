@@ -296,10 +296,32 @@ def add_subnet(args):
             return
         else:
             print(f"Subnet '{sub_name}' recorded but namespace missing; repairing…")
-    v_host = safe_ifname([vpc, sub_name], prefix="v-", maxlen=15)
-    v_peer = safe_ifname([vpc, sub_name], prefix="vbr-", maxlen=15)
+    v_host_base = safe_ifname([vpc, sub_name], prefix="v-", maxlen=15)
+    v_peer_base = safe_ifname([vpc, sub_name], prefix="vbr-", maxlen=15)
     run(["ip", "netns", "add", ns], dry=dry)
-    run(["ip", "link", "add", v_host, "type", "veth", "peer", "name", v_peer], dry=dry)
+    # Create veth pair with collision avoidance: if truncated names clash (e.g. public/private both -> '...-p'),
+    # retry with numeric suffixes up to 9. This prevents "File exists" errors when multiple subnets share
+    # leading characters that survive truncation.
+    v_host = v_host_base
+    v_peer = v_peer_base
+    if not dry:
+        existing_links = subprocess.run(["ip", "link", "show"], capture_output=True, text=True).stdout
+    else:
+        existing_links = ""
+    for attempt in range(10):
+        try:
+            run(["ip", "link", "add", v_host, "type", "veth", "peer", "name", v_peer], dry=dry)
+            break
+        except subprocess.CalledProcessError as e:
+            if "File exists" in str(e) or (not dry and (v_host in existing_links or v_peer in existing_links)):
+                if attempt == 9:
+                    raise
+                suffix = str(attempt + 1)
+                v_host = safe_ifname([vpc, sub_name, suffix], prefix="v-", maxlen=15)
+                v_peer = safe_ifname([vpc, sub_name, suffix], prefix="vbr-", maxlen=15)
+                continue
+            else:
+                raise
     run(["ip", "link", "set", v_peer, "master", bridge], dry=dry)
     run(["ip", "link", "set", v_peer, "up"], dry=dry)
     run(["ip", "link", "set", v_host, "netns", ns], dry=dry)
