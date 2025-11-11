@@ -7,116 +7,43 @@
 ## Table of Contents
 
 1. [Introduction: What Problem Are We Solving?](#introduction-what-problem-are-we-solving)
-2. [Real-World Scenario: The Coffee Shop Network](#real-world-scenario-the-coffee-shop-network)
-3. [Understanding the Basics](#understanding-the-basics)
-    - [What is a VPC?](#what-is-a-vpc)
-    - [What is a Subnet?](#what-is-a-subnet)
-    - [What is NAT?](#what-is-nat)
-    - [What is Peering?](#what-is-peering)
+2. [Understanding the Basics](#understanding-the-basics)
+   - [What is a VPC?](#what-is-a-vpc)
+   - [What is a Subnet?](#what-is-a-subnet)
+   - [What is NAT?](#what-is-nat)
+   - [What is Peering?](#what-is-peering)
+3. [Real-World Scenario: The Coffee Shop Network](#real-world-scenario-the-coffee-shop-network)
 4. [How vpcctl Works Under the Hood](#how-vpcctl-works-under-the-hood)
 5. [Prerequisites and Installation](#prerequisites-and-installation)
-6. [Your First VPC: Step-by-Step Tutorial](#your-first-vpc-step-by-step-tutorial)
-    - [Step 1: Create the VPC](#step-1-create-the-vpc)
-    - [Step 2: Add a Public Subnet](#step-2-add-a-public-subnet-for-the-web-server)
-    - [Step 3: Add a Private Subnet](#step-3-add-a-private-subnet-for-the-database)
-    - [Step 4: Deploy Test Applications](#step-4-deploy-test-applications)
-    - [Step 5: Test Intra-VPC Connectivity](#step-5-test-intra-vpc-connectivity)
-    - [Step 6: Enable Internet Access (NAT)](#step-6-enable-internet-access-nat)
-    - [Step 7: Test Internet Access](#step-7-test-internet-access)
-    - [Step 8: Apply Security Policies](#step-8-apply-security-policies)
-    - [Step 9: List Your VPCs](#step-9-list-your-vpcs)
-    - [Step 10: Inspect VPC Details](#step-10-inspect-vpc-details)
-    - [Step 11: Cleanup](#step-11-cleanup)
-7. [Understanding Every vpcctl Function](#understanding-every-vpcctl-function)
-    - [create](#1-create---create-a-new-vpc)
-    - [add-subnet](#2-add-subnet---create-a-subnet)
-    - [deploy-app](#3-deploy-app---deploy-a-test-application)
-    - [stop-app](#4-stop-app---stop-a-running-application)
-    - [enable-nat](#5-enable-nat---enable-internet-access)
-    - [peer](#6-peer---connect-two-vpcs)
-    - [apply-policy](#7-apply-policy---apply-firewall-rules)
-    - [list](#8-list---list-all-vpcs)
-    - [inspect](#9-inspect---view-vpc-details)
-    - [delete](#10-delete---delete-a-vpc)
-8. [Advanced Scenarios](#advanced-scenarios)
-9. [Troubleshooting Common Issues](#troubleshooting-common-issues)
-10. [Complete Code Reference](#complete-code-reference)
+6. [Quick Start: Your First VPC](#quick-start-your-first-vpc)
+7. [Deep Dive: Understanding Each Command](#deep-dive-understanding-each-command)
+8. [Architecture Overview](#architecture-overview)
+9. [Command Reference](#command-reference)
+10. [Advanced Scenarios](#advanced-scenarios)
+11. [Troubleshooting Common Issues](#troubleshooting-common-issues)
+12. [Complete Code Reference](#complete-code-reference)
+13. [Best Practices](#best-practices)
+14. [Learning Resources](#learning-resources)
+15. [Credits](#credits)
 
 ---
 
 ## Introduction: What Problem Are We Solving?
 
-Imagine you're a developer working on a web application. Your app has:
-- A **web server** that customers access
-- A **database** that stores customer data
-- An **admin panel** for internal staff
+Imagine you're a developer working on a web application with:
+
+- A web server that customers access
+- A database that stores customer data
+- An admin panel for internal staff
 
 You want to:
-1. **Isolate** your database so random people on the internet can't access it
-2. **Allow** your web server to talk to the database
-3. **Control** which ports and services are accessible from outside
-4. **Test** everything locally before deploying to the cloud
 
-This is exactly what cloud providers like AWS, Azure, and Google Cloud do with their VPC (Virtual Private Cloud) services. But what if you want to:
-- Learn how these systems work without spending money?
-- Test network configurations on your laptop?
-- Understand the underlying Linux networking magic?
+1. Isolate your database so random people on the internet can't access it
+2. Allow your web server to talk to the database
+3. Control which ports and services are accessible from outside
+4. Test everything locally before deploying to the cloud
 
-**That's where vpcctl comes in.** It's a tool that simulates cloud-style VPCs on a single Linux computer using native Linux features.
-
----
-
-## Real-World Scenario: The Coffee Shop Network
-
-Let's use a simple analogy to understand VPCs and subnets.
-
-### The Coffee Shop
-
-Imagine you own a coffee shop with different areas:
-
-1. **The Customer Area (Public Subnet)**
-   - Customers can walk in freely
-   - They can order coffee and use WiFi
-   - They can access the internet
-
-2. **The Kitchen (Private Subnet)**
-   - Only staff can enter
-   - This is where coffee is made
-   - No direct internet access needed
-   - But staff need to send orders from the customer area to the kitchen
-
-3. **The Office (Another Private Subnet)**
-   - Where you do accounting and management
-   - Only the owner can access
-   - Needs internet to process payments
-   - Completely separate from the kitchen
-
-In networking terms:
-- The entire coffee shop is your **VPC** (Virtual Private Cloud)
-- Each area (customer area, kitchen, office) is a **subnet**
-- The staff walking between areas is **routing**
-- The front door that controls who enters is your **firewall/security group**
-- The WiFi router that lets customers access the internet is **NAT** (Network Address Translation)
-
-### Translating to vpcctl
-
-When you create a VPC with vpcctl, you're building a virtual "coffee shop":
-
-```bash
-# Create the coffee shop (VPC)
-sudo vpcctl create coffeeshop --cidr 10.1.0.0/16
-
-# Create the customer area (public subnet)
-sudo vpcctl add-subnet coffeeshop customer-area --cidr 10.1.1.0/24
-
-# Create the kitchen (private subnet)
-sudo vpcctl add-subnet coffeeshop kitchen --cidr 10.1.2.0/24
-
-# Create the office (private subnet)
-sudo vpcctl add-subnet coffeeshop office --cidr 10.1.3.0/24
-```
-
-Now you have isolated areas that you can control independently!
+Cloud providers (AWS, Azure, Google Cloud) solve this with VPCs (Virtual Private Clouds). vpcctl lets you simulate VPCs locally on Linux using native networking features.
 
 ---
 
@@ -124,191 +51,45 @@ Now you have isolated areas that you can control independently!
 
 ### What is a VPC?
 
-**VPC stands for Virtual Private Cloud.**
-
-Think of it as your own private piece of the internet. In the real world (AWS, Azure), it's a logically isolated section of the cloud where you can launch resources. On your Linux machine with vpcctl, it's a simulated network environment.
-
-**Key characteristics:**
-- Has its own IP address range (CIDR block)
-- Everything inside can talk to each other by default
-- Isolated from other VPCs
-- You control all the networking rules
-
-**Example:**
-```bash
-sudo vpcctl create myapp --cidr 10.10.0.0/16
-```
-
-This creates a VPC named "myapp" with IP addresses ranging from 10.10.0.1 to 10.10.255.254.
+VPC stands for Virtual Private Cloud. It's a logically isolated network where you control IP ranges, routing, internet access, and security rules. Think of it like an office building where you control entrances, floors, and WiFi.
 
 ### What is a Subnet?
 
-**A subnet is a subdivision of your VPC.**
+A subnet is a smaller network inside your VPC with its own IP range and purpose (e.g., public web, private database). Common types:
 
-If a VPC is a building, subnets are the individual rooms. Each subnet has:
-- A smaller IP range (part of the VPC's range)
-- A specific purpose (public-facing, private, database, etc.)
-- Its own security rules
-
-**Types of subnets:**
-
-1. **Public Subnet**
-   - Can access the internet
-   - Can be accessed from the internet (with proper rules)
-   - Example: Web servers, load balancers
-
-2. **Private Subnet**
-   - Cannot be directly accessed from the internet
-   - Can access internet through NAT (if configured)
-   - Example: Databases, internal services
-
-**Example:**
-```bash
-# Public subnet for web servers
-sudo vpcctl add-subnet myapp web --cidr 10.10.1.0/24
-
-# Private subnet for databases
-sudo vpcctl add-subnet myapp database --cidr 10.10.2.0/24
-```
+- Public subnet: can reach the internet and may accept inbound traffic
+- Private subnet: no direct internet access; used for internal services
 
 ### What is NAT?
 
-**NAT stands for Network Address Translation.**
-
-**The Problem:** Your private subnet (like the database) might need to download security updates from the internet, but you don't want the internet to directly access your database.
-
-**The Solution:** NAT acts like a receptionist:
-- Your database makes a request to download something
-- The NAT gateway forwards that request using its own public IP
-- The response comes back to NAT
-- NAT forwards it to your database
-- From the internet's perspective, everything came from NAT
-
-**Think of it like a hotel:**
-- You're in room 205 (private IP: 10.10.2.5)
-- You call reception and ask them to order pizza
-- Reception calls the pizza place using the hotel's number (public IP)
-- Pizza arrives at reception, they call you to pick it up
-- The pizza place never knew your room number
-
-**Example:**
-```bash
-# Enable internet access for your VPC through NAT
-sudo vpcctl enable-nat myapp --interface eth0
-```
+NAT (Network Address Translation) lets private subnets access the internet without exposing them. Like a hotel reception calling restaurants on behalf of guests—responses come back via reception.
 
 ### What is Peering?
 
-**Peering connects two separate VPCs so they can talk to each other.**
+Peering connects two VPCs so they can talk privately. Useful for connecting apps across isolated networks while allowing only specific subnets to communicate.
 
-**Real-world scenario:** You have two applications:
-- VPC 1: Your main web application
-- VPC 2: Your analytics service
+---
 
-You want the web app to send data to analytics, but you want to keep them in separate VPCs for security and organization.
+## Real-World Scenario: The Coffee Shop Network
 
-**Peering creates a private bridge between them.**
+Picture a coffee shop:
 
-**Example:**
-```bash
-# Create two VPCs
-sudo vpcctl create webapp --cidr 10.10.0.0/16
-sudo vpcctl create analytics --cidr 10.20.0.0/16
+- Customer Area = Public subnet (internet access, open to customers)
+- Kitchen = Private subnet (staff-only, no direct internet from outside)
+- Office = Another private subnet (admin-only)
 
-# Connect them via peering
-sudo vpcctl peer webapp analytics --allow-cidrs 10.10.1.0/24,10.20.1.0/24
-```
-
-Now specific subnets in webapp and analytics can communicate!
+Translating to vpcctl, creating a VPC is like building that coffee shop; adding subnets creates the areas; NAT is the WiFi router; firewall rules control who gets in.
 
 ---
 
 ## How vpcctl Works Under the Hood
 
-vpcctl uses Linux networking primitives. Here's what's really happening:
+vpcctl uses Linux primitives:
 
-### 1. Network Namespaces
-**What they are:** Isolated network environments on Linux. Each namespace has its own network interfaces, routing tables, and firewall rules.
-
-**Why we use them:** Each subnet you create is actually a network namespace. This provides true isolation—processes in one namespace can't see or access another namespace's network.
-
-**Real command:**
-```bash
-# vpcctl runs this for you:
-sudo ip netns add ns-myapp-web
-```
-
-### 2. Virtual Ethernet (veth) Pairs
-**What they are:** Like a virtual network cable. Data sent into one end comes out the other.
-
-**Why we use them:** To connect a namespace (subnet) to the VPC bridge.
-
-**Think of it as:** A network cable plugged into your computer's network card.
-
-**Real command:**
-```bash
-# vpcctl creates a veth pair:
-sudo ip link add v-myapp-web-a type veth peer name v-myapp-web-b
-```
-
-### 3. Linux Bridge
-**What it is:** A virtual network switch inside your computer.
-
-**Why we use it:** Each VPC is a bridge. All subnets (namespaces) in that VPC connect to this bridge, allowing them to communicate.
-
-**Think of it as:** A network switch in an office that connects all computers.
-
-**Real command:**
-```bash
-# vpcctl creates a bridge for each VPC:
-sudo ip link add br-myapp type bridge
-```
-
-### 4. iptables
-**What it is:** Linux's firewall system.
-
-**Why we use it:** To control traffic flow, implement NAT, enforce security policies, and manage peering rules.
-
-**Real command:**
-```bash
-# NAT rule example:
-sudo iptables -t nat -A POSTROUTING -s 10.10.0.0/16 -o eth0 -j MASQUERADE
-```
-
-### The Complete Picture
-
-When you run:
-```bash
-sudo vpcctl create myapp --cidr 10.10.0.0/16
-sudo vpcctl add-subnet myapp web --cidr 10.10.1.0/24
-```
-
-Here's what happens:
-
-1. **VPC Creation:**
-   - Creates a Linux bridge named `br-myapp`
-   - Assigns IP `10.10.0.1` to the bridge
-   - Creates an iptables chain `vpc-myapp` for filtering traffic
-   - Saves metadata to `.vpcctl_data/vpc_myapp.json`
-
-2. **Subnet Creation:**
-   - Creates a network namespace `ns-myapp-web`
-   - Creates a veth pair: one end in the namespace, one on the bridge
-   - Assigns IP `10.10.1.2` inside the namespace
-   - Sets up routing inside the namespace
-   - Generates and applies default security policies
-   - Updates the metadata JSON
-
-
-**Visual representation:**
-
-![Single VPC Architecture](https://res.cloudinary.com/dvgk3fko3/image/upload/v1762848698/minimain_ulzxld.png)
-
----
-
-**VPC Peering (VPC-to-VPC Connection):**
-
-![VPC Peering Architecture](https://res.cloudinary.com/dvgk3fko3/image/upload/v1762848698/peer_hw5cge.png)
+1. Network namespaces: isolated network environments per subnet
+2. veth pairs: virtual cables connecting namespaces to the VPC
+3. Linux bridges: the VPC switch interconnecting subnets
+4. iptables: firewall rules, NAT, and peering enforcement
 
 ---
 
@@ -316,779 +97,980 @@ Here's what happens:
 
 ### System Requirements
 
-**Operating System:**
-- Linux (Ubuntu 20.04+ or Debian 10+ recommended)
-- You can use a virtual machine if you're on Windows or Mac
+- Linux (Ubuntu 20.04+/Debian 10+ recommended). Use WSL/VM on Windows if needed.
+- Root access (sudo) required
+- Tools: Python 3.6+, iproute2 (ip), iptables, curl, tcpdump, bridge-utils
 
-**Required Tools:**
-- Python 3.6 or higher
-- iproute2 (provides `ip` command)
-- iptables
-- curl (for testing)
+### Install Steps
 
-**Privileges:**
-- Root access (sudo) is required
+1) Install required packages
 
-### Installation Steps
-
-#### Step 1: Install Required Packages
-
-On Ubuntu/Debian:
 ```bash
 sudo apt update
 sudo apt install -y python3 iproute2 iptables curl tcpdump bridge-utils
+# CentOS/RHEL: sudo yum install -y python3 iproute iptables curl tcpdump bridge-utils
 ```
 
-On CentOS/RHEL:
+2) Get vpcctl
+
 ```bash
-sudo yum install -y python3 iproute iptables curl tcpdump bridge-utils
+git clone https://github.com/DestinyObs/HNGi13-Stage4-vpcctl
+cd HNGi13-Stage4-vpcctl
 ```
 
-#### Step 2: Download vpcctl
+3) Make it available as a command
 
-**Option A: Clone from GitHub**
 ```bash
-git clone https://github.com/DestinyObs/HNGi13-Stage4-vpcctl/
-cd vpcctl
-```
-
-**Option B: Download the Single File**
-```bash
-curl -O https://github.com/DestinyObs/HNGi13-Stage4-vpcctl/blob/main/vpcctl.py
 chmod +x vpcctl.py
-```
-
-#### Step 3: Install vpcctl as a Command (Recommended)
-
-Install vpcctl so you can use it as a system command:
-
-```bash
-# Make it executable
-chmod +x vpcctl.py
-
-# Create a symlink in your PATH
 sudo ln -s "$(pwd)/vpcctl.py" /usr/local/bin/vpcctl
-
-# Verify installation
 vpcctl --help
+sudo vpcctl flag-check  # safe: validates parser only
 ```
-
-#### Step 4: Verify Everything Works
-
-Run the parser check (this is safe and makes no system changes):
-```bash
-sudo vpcctl flag-check
-```
-
-What this validates (no system changes):
-
-```text
-- Loads the CLI argument parser and the command dispatch table
-- Verifies subcommands/flags can be parsed correctly
-- Exits immediately without creating namespaces, bridges, or iptables rules
-```
-
-You should see: "Parser check OK"
 
 ---
 
-## Your First VPC: Step-by-Step Tutorial
+## Quick Start: Your First VPC
 
-Let's build a realistic setup: a simple web application with a database.
+We'll use these consistent names and CIDRs everywhere:
 
-### Scenario
+- myvpc: 10.10.0.0/16
+  - public: 10.10.1.0/24
+  - private: 10.10.2.0/24
+- othervpc: 10.20.0.0/16
+  - public: 10.20.1.0/24
 
-You're building a blog platform with:
-- A web server (public, accessible from internet)
-- A database server (private, not accessible from internet)
-- The web server needs to access the database
-- The database needs to download updates from the internet (via NAT)
+Single VPC architecture:
+
+![Single VPC Architecture](https://res.cloudinary.com/dvgk3fko3/image/upload/v1762848698/minimain_ulzxld.png)
+
+VPC peering architecture:
+
+![VPC Peering Architecture](https://res.cloudinary.com/dvgk3fko3/image/upload/v1762848698/peer_hw5cge.png)
+
+### Step 0: One-Time Checks
+
+```bash
+sudo vpcctl --help | head -n 5
+sudo vpcctl flag-check
+```
 
 ### Step 1: Create the VPC
 
 ```bash
-sudo vpcctl create blog --cidr 10.20.0.0/16
+sudo vpcctl create myvpc --cidr 10.10.0.0/16
 ```
 
-Under the hood (what vpcctl runs):
+### Step 2: Add Subnets
 
 ```bash
-# Create a dedicated virtual switch (bridge) for this VPC
-ip link add br-blog type bridge
-
-# Assign the VPC gateway IP to the bridge (first IP of the CIDR)
-ip addr add 10.20.0.1/16 dev br-blog
-
-# Bring the bridge up so interfaces can attach and pass traffic
-ip link set br-blog up
+sudo vpcctl add-subnet myvpc public  --cidr 10.10.1.0/24
+sudo vpcctl add-subnet myvpc private --cidr 10.10.2.0/24
 ```
 
-Explanation:
-- The bridge br-blog is the "switch" interconnecting all subnets of the blog VPC
-- 10.20.0.1/16 becomes the VPC gateway used by subnets inside the VPC
-- Bringing the bridge up activates it so later subnets can attach via veth
-
-**What this does:**
-- Creates a VPC named "blog"
-- Assigns IP range 10.20.0.0/16 (65,534 possible addresses)
-- Creates a bridge `br-blog`
-
-**Expected output:**
-```
->>> ip link add br-blog type bridge
->>> ip addr add 10.20.0.1/16 dev br-blog
->>> ip link set br-blog up
-Created VPC: blog (10.20.0.0/16, bridge: br-blog)
-```
-
-### Step 2: Add a Public Subnet for the Web Server
+### Step 3: Deploy Test Apps
 
 ```bash
-sudo vpcctl add-subnet blog webserver --cidr 10.20.1.0/24
+sudo vpcctl deploy-app myvpc public  --port 8080
+sudo vpcctl deploy-app myvpc private --port 8081
 ```
 
-Under the hood, this wires a namespace to the VPC bridge:
+### Step 4: Enable NAT (Internet Access for public)
 
 ```bash
-# Create an isolated Linux network namespace for the subnet
-ip netns add ns-blog-webserver
-
-# Create a veth pair (two virtual Ethernet interfaces back-to-back)
-ip link add v-blog-webser-a type veth peer name v-blog-webser-b
-
-# Move one end into the namespace (becomes the subnet's gateway-facing NIC)
-ip link set v-blog-webser-a netns ns-blog-webserver
-
-# Attach the other end to the VPC bridge so it can talk to other subnets
-ip link set v-blog-webser-b master br-blog
-
-# Inside the namespace, assign IPs and bring interfaces up (simplified)
-ip netns exec ns-blog-webserver ip addr add 10.20.1.1/24 dev v-blog-webser-a
-ip netns exec ns-blog-webserver ip link set v-blog-webser-a up
-ip link set v-blog-webser-b up
+IFACE=$(ip route get 1.1.1.1 | awk '{print $5; exit}')
+echo "Using host interface: $IFACE"
+sudo vpcctl enable-nat myvpc --interface "$IFACE"
 ```
 
-Key points:
-- veth pair acts like a virtual patch cable between the subnet and the bridge
-- Namespace holds the subnet's processes and interfaces isolated from the host
-- The .1 address typically serves as the subnet's internal default gateway
-
-**What this does:**
-- Creates a subnet named "webserver" in the blog VPC
-- Assigns IP range 10.20.1.0/24 (254 addresses)
-- Creates namespace `ns-blog-webserver`
-- Sets up connectivity
-
-**Expected output:**
-```
->>> ip netns add ns-blog-webserver
->>> ip link add v-blog-webser-a type veth peer name v-blog-webser-b
->>> ip link set v-blog-webser-a netns ns-blog-webserver
->>> ip link set v-blog-webser-b master br-blog
-...
-Added subnet webserver (10.20.1.0/24) to VPC blog
-```
-
-### Step 3: Add a Private Subnet for the Database
+### Step 5: Test Connectivity
 
 ```bash
-sudo vpcctl add-subnet blog database --cidr 10.20.2.0/24
+# Private -> Public (intra-VPC)
+sudo ip netns exec ns-myvpc-private curl -s http://10.10.1.2:8080 | head -n 1
+
+# Public -> Internet (NAT)
+sudo ip netns exec ns-myvpc-public curl -s https://example.com | head -n 1
+
+# Host -> Private (should fail)
+curl -s --connect-timeout 2 http://10.10.2.2:8081 || echo "private not reachable from host (expected)"
 ```
 
-Under the hood, very similar steps repeat with different names/IP:
+### Step 6: Show VPC Isolation
 
 ```bash
-ip netns add ns-blog-database
-ip link add v-blog-datab-a type veth peer name v-blog-datab-b
-ip link set v-blog-datab-a netns ns-blog-database
-ip link set v-blog-datab-b master br-blog
-ip netns exec ns-blog-database ip addr add 10.20.2.1/24 dev v-blog-datab-a
-ip netns exec ns-blog-database ip link set v-blog-datab-a up
-ip link set v-blog-datab-b up
+sudo vpcctl create othervpc --cidr 10.20.0.0/16
+sudo vpcctl add-subnet othervpc public --cidr 10.20.1.0/24
+sudo vpcctl deploy-app othervpc public --port 8080
+sudo ip netns exec ns-myvpc-public curl -s --connect-timeout 2 http://10.20.1.2:8080 || echo "blocked by default (expected)"
 ```
 
-Difference from the public subnet:
-- Same isolation pattern; only policies later will differentiate exposure
-- Separate namespace keeps database traffic segregated from web traffic
-
-**What this does:**
-- Creates another subnet for the database
-- Separate namespace `ns-blog-database`
-- IP range 10.20.2.0/24
-
-### Step 4: Deploy Test Applications
-
-Let's deploy a simple HTTP server in each subnet to test connectivity:
+### Step 7: Peer VPCs (Allow Only Public↔Public)
 
 ```bash
-# Deploy web server on port 8080
-sudo vpcctl deploy-app blog webserver --port 8080
-
-# Deploy database mock on port 5432
-sudo vpcctl deploy-app blog database --port 5432
+sudo vpcctl peer myvpc othervpc --allow-cidrs 10.10.1.0/24,10.20.1.0/24
+sudo ip netns exec ns-myvpc-public curl -s http://10.20.1.2:8080 | head -n 1
 ```
 
-Under the hood (per deploy-app invocation):
+### Step 8: Apply Security Policy
 
 ```bash
-# Execute a simple Python HTTP server inside the target subnet namespace
-ip netns exec ns-blog-webserver python3 -m http.server 8080 &
-# PID captured and stored in .vpcctl_data/blog/apps/webserver.json
-
-# For the database mock (simplified HTTP listener substitute)
-ip netns exec ns-blog-database python3 -m http.server 5432 &
+sudo vpcctl apply-policy myvpc policy_examples/example_ingress_egress_policy.json
 ```
 
-What metadata tracks:
-- Namespace name, port, PID, timestamp
-- Enables later stop-app and inspect operations
-
-**What this does:**
-- Starts a Python HTTP server inside each namespace
-- Web server: accessible on 10.20.1.2:8080
-- Database: accessible on 10.20.2.2:5432
-
-**Expected output:**
-```
-Deployed app in subnet webserver (ns-blog-webserver) on port 8080, PID=12345
-```
-
-### Step 5: Test Intra-VPC Connectivity
-
-Let's verify that the web server can reach the database (they're in the same VPC):
-
-```bash
-sudo ip netns exec ns-blog-webserver curl -s http://10.20.2.2:5432
-```
-
-**Expected result:** You should see HTML output from the Python server running in the database namespace.
-
-**What this command does:**
-- `ip netns exec ns-blog-webserver`: Run the following command inside the webserver namespace
-- `curl http://10.20.2.2:5432`: Make an HTTP request to the database
-
-✅ **Success!** Your web server can talk to your database.
-
-### Step 6: Enable Internet Access (NAT)
-
-Right now, neither subnet can access the internet. Let's add NAT:
-
-```bash
-# Find your host's network interface (usually eth0, enp0s3, or wlan0)
-ip route | grep default
-
-# Enable NAT (replace eth0 with your interface)
-sudo vpcctl enable-nat blog --interface eth0
-```
-
-Under the hood (simplified):
-
-```bash
-# Turn on IPv4 forwarding globally (allows routing between namespaces and uplink)
-sysctl -w net.ipv4.ip_forward=1
-
-# Masquerade outbound packets from the VPC CIDR so they appear from the host interface
-iptables -t nat -A POSTROUTING -s 10.20.0.0/16 -o eth0 -j MASQUERADE -m comment --comment vpcctl-nat-blog
-```
-
-Notes:
-- MASQUERADE rewrites source IPs so return traffic finds its way back
-- Comment tag lets vpcctl avoid duplicating the rule and clean it up later
-
-**What this does:**
-- Adds iptables MASQUERADE rule
-- Enables IP forwarding on the host
-- Allows namespaces to access the internet using the host's IP
-
-### Step 7: Test Internet Access
-
-From the web server namespace:
-```bash
-sudo ip netns exec ns-blog-webserver curl -s http://10.20.1.2:8080 | head -n 5
-```
-
-**Expected result:** HTML from example.com
-
-✅ **Success!** Your subnets can now access the internet.
-
-### Step 8: Apply Security Policies
-
-Let's restrict access to the database—block SSH (port 22) but allow HTTP (port 80):
-
-First, create a policy file `database_policy.json`:
-```json
-{
-  "subnet": "10.20.2.0/24",
-  "ingress": [
-    {"port": 5432, "protocol": "tcp", "action": "allow"},
-    {"port": 22, "protocol": "tcp", "action": "deny"}
-  ],
-  "egress": [
-    {"port": 80, "protocol": "tcp", "action": "allow"},
-    {"port": 443, "protocol": "tcp", "action": "allow"}
-  ]
-}
-```
-
-Apply the policy:
-```bash
-sudo vpcctl apply-policy blog database_policy.json
-```
-
-Under the hood (rules inside namespace):
-
-```bash
-# Allow PostgreSQL port
-ip netns exec ns-blog-database iptables -A INPUT -p tcp --dport 5432 -j ACCEPT -m comment --comment policy-ingress-allow-5432
-
-# Deny SSH port (placed before broader allows)
-ip netns exec ns-blog-database iptables -A INPUT -p tcp --dport 22 -j DROP -m comment --comment policy-ingress-deny-22
-
-# Allow outbound HTTP/HTTPS
-ip netns exec ns-blog-database iptables -A OUTPUT -p tcp --dport 80 -j ACCEPT -m comment --comment policy-egress-allow-80
-ip netns exec ns-blog-database iptables -A OUTPUT -p tcp --dport 443 -j ACCEPT -m comment --comment policy-egress-allow-443
-```
-
-Mechanics:
-- Policy JSON is parsed; each rule becomes a namespaced iptables entry
-- Comments let future apply-policy calls update or skip existing rules idempotently
-- Separation of INPUT vs OUTPUT enforces ingress vs egress direction cleanly
-
-**What this does:**
-- Adds iptables rules inside the database namespace
-- Blocks incoming SSH connections
-- Allows incoming connections on port 5432 (PostgreSQL)
-- Allows outgoing HTTP/HTTPS
-
-### Step 9: List Your VPCs
+### Step 9: Inspect and List
 
 ```bash
 sudo vpcctl list
+sudo vpcctl inspect myvpc | head -n 30
 ```
 
-Under the hood (simplified):
-```bash
-# Enumerate metadata files and derive VPC names
-ls .vpcctl_data | grep -E '^vpc_.*\.json$' | sed 's/^vpc_//; s/\.json$//'
-```
-
-**Output:**
-```
-VPCs:
-- blog
-```
-
-### Step 10: Inspect VPC Details
+### Step 10: Cleanup
 
 ```bash
-sudo vpcctl inspect blog
-```
-
-Under the hood:
-```bash
-# Read and format VPC metadata
-cat .vpcctl_data/vpc_blog.json
-# vpcctl aggregates and pretty-prints subnets, apps, peers, and policies
-```
-
-**Output:** Full JSON metadata showing subnets, IP addresses, running apps, and applied policies.
-
-### Step 11: Cleanup
-
-When you're done experimenting:
-```bash
-sudo vpcctl delete blog
-```
-
-Under the hood (high-level teardown sequence):
-```bash
-# Stop app processes and remove policy/NAT rules
-
-# Delete namespaces and their veth interfaces
-ip netns del ns-blog-webserver || true
-ip netns del ns-blog-database || true
-
-# Remove bridge
-ip link del br-blog || true
-
-# Remove metadata file
-rm -f .vpcctl_data/vpc_blog.json
-```
-
-All operations are idempotent: if something is already gone, vpcctl skips it safely.
-
-**What this does:**
-- Stops all running applications
-- Deletes namespaces
-- Removes the bridge
-- Cleans up iptables rules
-- Deletes metadata
-
-**Expected output:**
-```
-Deleted VPC: blog
+sudo vpcctl delete othervpc
+sudo vpcctl delete myvpc
+sudo vpcctl list
 ```
 
 ---
 
-## Understanding Every vpcctl Function
+## Deep Dive: Understanding Each Command
 
-Let's walk through each command in detail.
+Below are the key commands and what happens under the hood.
 
-### 1. `create` - Create a New VPC
+### create
 
-**Purpose:** Initialize a new VPC with an IP address range.
+Command
 
-**Syntax:**
 ```bash
-sudo vpcctl create <vpc-name> --cidr <ip-range>
+sudo vpcctl create myvpc --cidr 10.10.0.0/16
 ```
 
-**Parameters:**
-- `<vpc-name>`: Any alphanumeric name (e.g., "myapp", "production", "test_vpc")
-- `--cidr`: IP address range in CIDR notation (e.g., 10.0.0.0/16)
+What happens
 
-**What happens internally:**
-1. Creates a Linux bridge named `br-<vpc-name>`
-2. Assigns the first IP in the range to the bridge (gateway IP)
-3. Brings the bridge up
-4. Creates an iptables chain for the VPC
-5. Saves metadata to `.vpcctl_data/vpc_<name>.json`
+- Creates a Linux bridge br-myvpc and assigns 10.10.0.1/16
+- Enables routing and prepares an iptables chain vpc-myvpc
+- Records metadata to .vpcctl_data/vpc_myvpc.json
 
-**Examples:**
+### add-subnet
+
+Command
+
 ```bash
-# Development VPC
-sudo vpcctl create dev --cidr 10.10.0.0/16
-
-# Production VPC
-sudo vpcctl create prod --cidr 10.20.0.0/16
-
-# Testing VPC
-sudo vpcctl create test --cidr 192.168.100.0/24
+sudo vpcctl add-subnet myvpc public --cidr 10.10.1.0/24
 ```
 
-**Common CIDR ranges:**
-- `/16`: 65,534 hosts (10.0.0.0/16 → 10.0.0.1 to 10.0.255.254)
-- `/24`: 254 hosts (10.0.1.0/24 → 10.0.1.1 to 10.0.1.254)
-- `/20`: 4,094 hosts
+What happens
 
-**Dry-run mode (preview without changes):**
+- Creates namespace ns-myvpc-public
+- Creates a veth pair; one end attaches to br-myvpc, the other goes into the namespace
+- Assigns 10.10.1.1/24 to the bridge and 10.10.1.2/24 inside the namespace; sets default route via 10.10.1.1
+
+### deploy-app
+
+Command
+
 ```bash
-vpcctl --dry-run create dev --cidr 10.10.0.0/16
+sudo vpcctl deploy-app myvpc public --port 8080
 ```
+
+What happens
+
+- Runs python3 -m http.server PORT in the target namespace
+- Captures PID and stores it in metadata for reliable stop/cleanup
+
+### stop-app
+
+Command
+
+```bash
+sudo vpcctl stop-app myvpc public
+```
+
+What happens
+
+- Looks up the PID from metadata and terminates the app in the namespace
+- Updates metadata
+
+### enable-nat
+
+Command
+
+```bash
+sudo vpcctl enable-nat myvpc --interface eth0
+```
+
+What happens
+
+- Enables IPv4 forwarding
+- Adds NAT (MASQUERADE) and FORWARD rules to let selected subnets reach the internet via the host interface
+
+### peer
+
+Command
+
+```bash
+sudo vpcctl peer myvpc othervpc --allow-cidrs 10.10.1.0/24,10.20.1.0/24
+```
+
+What happens
+
+- Creates a veth pair connecting br-myvpc and br-othervpc
+- Adds iptables rules to allow only the specified CIDR pairs; everything else remains blocked
+
+### apply-policy
+
+Command
+
+```bash
+sudo vpcctl apply-policy myvpc policy_examples/example_ingress_egress_policy.json
+```
+
+What happens
+
+- Parses JSON and applies ingress/egress rules with iptables inside the target subnet namespace
+- Uses rule comments to stay idempotent on re-apply
+
+### list / inspect / delete
+
+- list: shows all VPCs (based on metadata files)
+- inspect: pretty-prints full metadata (subnets, apps, NAT, peers, policies)
+- delete: stops apps, removes namespaces, veths, bridge, and rules; then deletes metadata
 
 ---
 
-### 2. `add-subnet` - Create a Subnet
+## Architecture Overview
 
-**Purpose:** Add a subnet (network namespace) to an existing VPC.
+Single VPC
 
-**Syntax:**
+![Single VPC Architecture](https://res.cloudinary.com/dvgk3fko3/image/upload/v1762848698/minimain_ulzxld.png)
+
+VPC Peering (VPC ↔ VPC)
+
+![VPC Peering Architecture](https://res.cloudinary.com/dvgk3fko3/image/upload/v1762848698/peer_hw5cge.png)
+
+---
+
+## Command Reference
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| create | Create a new VPC | `sudo vpcctl create myvpc --cidr 10.10.0.0/16` |
+| add-subnet | Add a subnet to a VPC | `sudo vpcctl add-subnet myvpc public --cidr 10.10.1.0/24` |
+| deploy-app | Start HTTP server in subnet | `sudo vpcctl deploy-app myvpc public --port 8080` |
+| stop-app | Stop running application | `sudo vpcctl stop-app myvpc public` |
+| enable-nat | Enable internet access via NAT | `sudo vpcctl enable-nat myvpc --interface eth0` |
+| peer | Connect two VPCs | `sudo vpcctl peer myvpc othervpc --allow-cidrs 10.10.1.0/24,10.20.1.0/24` |
+| apply-policy | Apply firewall rules (JSON) | `sudo vpcctl apply-policy myvpc policy.json` |
+| list | List all VPCs | `sudo vpcctl list` |
+| inspect | Show VPC metadata | `sudo vpcctl inspect myvpc` |
+| delete | Delete a VPC | `sudo vpcctl delete myvpc` |
+| cleanup-all | Delete all VPCs | `sudo vpcctl cleanup-all` |
+| verify | Check for orphaned resources | `sudo vpcctl verify` |
+
+---
+
+## CIDR Notation Quick Reference
+
+| CIDR | Usable IPs | Use Case |
+|------|------------|----------|
+| /8   | 16,777,216 | Entire organization |
+| /16  | 65,536     | VPC (multiple subnets) |
+| /20  | 4,096      | Large subnet |
+| /24  | 256        | Standard subnet |
+| /28  | 16         | Small subnet |
+| /32  | 1          | Single host |
+
+Consistent example in this guide
+
+- VPC: 10.10.0.0/16
+- Public subnet: 10.10.1.0/24
+- Private subnet: 10.10.2.0/24
+- Second VPC: 10.20.0.0/16
+ip link set pv-myvpc-otherv-a up{
+
+ip link set pv-myvpc-otherv-b up  "subnet": "10.20.2.0/24",
+
+  "ingress": [
+
+# Allow traffic between specific CIDRs    {"port": 5432, "protocol": "tcp", "action": "allow"},
+
+iptables -A vpc-myvpc -s 10.10.0.0/16 -d 10.20.0.0/16 -j ACCEPT    {"port": 22, "protocol": "tcp", "action": "deny"}
+
+iptables -A vpc-othervpc -s 10.20.0.0/16 -d 10.10.0.0/16 -j ACCEPT  ],
+
+```  "egress": [
+
+    {"port": 80, "protocol": "tcp", "action": "allow"},
+
+### 1) create
+
+Command
+
 ```bash
-sudo vpcctl add-subnet <vpc-name> <subnet-name> --cidr <ip-range>
+sudo vpcctl create myvpc --cidr 10.10.0.0/16
 ```
 
-**Parameters:**
-- `<vpc-name>`: Name of the VPC
+Under the hood
+
+- Creates a Linux bridge br-myvpc and assigns 10.10.0.1/16
+- Enables routing and prepares an iptables chain vpc-myvpc
+- Writes metadata to .vpcctl_data/vpc_myvpc.json
+
+### 2) add-subnet
+
+Command
+
+# Apply ingress rules
+sudo vpcctl add-subnet myvpc public --cidr 10.10.1.0/24
+```
+
+Under the hood
+
+- Creates namespace ns-myvpc-public
+- Creates veth pair, attaches one end to br-myvpc and the other into the namespace
+- Assigns 10.10.1.1 (gw) on bridge and 10.10.1.2 inside namespace; sets default route
+
+### 3) deploy-app
+iptables -F vpc-myvpcLet's walk through each command in detail.
+Command
+
+```bash
+sudo vpcctl deploy-app myvpc public --port 8080
+```
+
+Under the hood
+
+- Runs python3 -m http.server PORT inside the target namespace
+- Captures PID and stores it in metadata for later stop/cleanup
+
+### 4) enable-nat
+
+Command
+
+```bash
+sudo vpcctl enable-nat myvpc --interface eth0
+```
+
+Under the hood
+
+- Enables IPv4 forwarding
+- Adds iptables MASQUERADE and FORWARD rules for the selected interface
+
+### 5) peer
+
+Command
+
+```bash
+sudo vpcctl peer myvpc othervpc --allow-cidrs 10.10.1.0/24,10.20.1.0/24
+```
+
+Under the hood
+
+- Creates a veth pair connecting br-myvpc and br-othervpc
+- Adds iptables rules to permit only the allowed CIDRs in each direction
+
+### 6) list / inspect
+
+
+
+# Check routing table**Parameters:**
+
+sudo ip netns exec ns-myvpc-public ip route- `<vpc-name>`: Name of the VPC
+
 - `<subnet-name>`: Name for this subnet (e.g., "public", "private", "web", "db")
-- `--cidr`: IP range for this subnet (must be within VPC's range)
-- `--gw` (optional): Gateway IP (defaults to first IP in subnet range)
 
-**What happens internally:**
-1. Creates a network namespace `ns-<vpc>-<subnet>`
+# Check firewall rules- `--cidr`: IP range for this subnet (must be within VPC's range)
+
+sudo ip netns exec ns-myvpc-public iptables -L -n -v- `--gw` (optional): Gateway IP (defaults to first IP in subnet range)
+
+
+
+# Test connectivity**What happens internally:**
+
+sudo ip netns exec ns-myvpc-public ping -c 2 10.10.2.21. Creates a network namespace `ns-<vpc>-<subnet>`
+
 2. Creates a veth pair (virtual network cable)
-3. Attaches one end to the namespace, one to the VPC bridge
-4. Assigns IP addresses
-5. Sets up routing tables inside the namespace
-6. Generates default security policy
-7. Applies the policy
 
-**Examples:**
+# Run a shell3. Attaches one end to the namespace, one to the VPC bridge
+
+sudo ip netns exec ns-myvpc-public bash4. Assigns IP addresses
+
+```5. Sets up routing tables inside the namespace
+
+6. Generates default security policy
+
+---7. Applies the policy
+
+
+
+### Dry-Run Mode**Examples:**
+
 ```bash
-# Public subnet for web servers
+
+Preview commands without executing them:# Public subnet for web servers
+
 sudo vpcctl add-subnet myapp web --cidr 10.10.1.0/24
 
-# Private subnet for databases
-sudo vpcctl add-subnet myapp database --cidr 10.10.2.0/24
+```bash
 
-# Private subnet for backend services
-sudo vpcctl add-subnet myapp backend --cidr 10.10.3.0/24
+vpcctl --dry-run create test --cidr 10.99.0.0/16# Private subnet for databases
 
-# Custom gateway IP
+```sudo vpcctl add-subnet myapp database --cidr 10.10.2.0/24
+
+
+
+Useful for:# Private subnet for backend services
+
+- Learning what vpcctl doessudo vpcctl add-subnet myapp backend --cidr 10.10.3.0/24
+
+- Debugging issues
+
+- Validating configurations# Custom gateway IP
+
 sudo vpcctl add-subnet myapp dmz --cidr 10.10.4.0/24 --gw 10.10.4.254
-```
 
-**Subnet naming best practices:**
+---```
+
+
+
+## Troubleshooting**Subnet naming best practices:**
+
 - `public`: Internet-facing resources
-- `private`: Internal resources
+
+### Problem: "VPC not found"- `private`: Internal resources
+
 - `database` or `db`: Database servers
-- `backend`: Application backend services
-- `frontend`: Frontend services
 
-**Default policy applied:**
+**Symptom:**- `backend`: Application backend services
+
+```- `frontend`: Frontend services
+
+VPC 'myvpc' not found. Create it first.
+
+```**Default policy applied:**
+
 - **Ingress:** Allow TCP ports 80, 443; Deny TCP port 22
-- **Egress:** No restrictions (allows all outbound)
 
----
+**Solution:**- **Egress:** No restrictions (allows all outbound)
+
+```bash
+
+# Check if VPC exists---
+
+sudo vpcctl list
 
 ### 3. `deploy-app` - Deploy a Test Application
 
-**Purpose:** Start a simple Python HTTP server inside a subnet for testing.
+# Create it if missing
+
+sudo vpcctl create myvpc --cidr 10.10.0.0/16**Purpose:** Start a simple Python HTTP server inside a subnet for testing.
+
+```
 
 **Syntax:**
-```bash
+
+---```bash
+
 sudo vpcctl deploy-app <vpc-name> <subnet-name> --port <port>
-```
 
-**Parameters:**
-- `<vpc-name>`: Name of the VPC
-- `<subnet-name>`: Name of the subnet
-- `--port`: Port number for the HTTP server
+### Problem: "Permission denied"```
 
-**What happens internally:**
-1. Runs `python3 -m http.server <port>` inside the namespace
-2. Uses `nohup` to run in background
-3. Records PID (process ID) in metadata
-4. Saves the command for later cleanup
 
-**Examples:**
+
+**Symptom:****Parameters:**
+
+```- `<vpc-name>`: Name of the VPC
+
+ip: Operation not permitted- `<subnet-name>`: Name of the subnet
+
+```- `--port`: Port number for the HTTP server
+
+
+
+**Solution:****What happens internally:**
+
+Run all vpcctl commands with `sudo`:1. Runs `python3 -m http.server <port>` inside the namespace
+
+```bash2. Uses `nohup` to run in background
+
+sudo vpcctl create myvpc --cidr 10.10.0.0/163. Records PID (process ID) in metadata
+
+```4. Saves the command for later cleanup
+
+
+
+---**Examples:**
+
 ```bash
-# Web server on standard HTTP port
+
+### Problem: Connectivity between subnets not working# Web server on standard HTTP port
+
 sudo vpcctl deploy-app myapp web --port 8080
 
-# Database mock on PostgreSQL port
-sudo vpcctl deploy-app myapp database --port 5432
+**Debug steps:**
 
-# API server
-sudo vpcctl deploy-app myapp api --port 3000
+# Database mock on PostgreSQL port
+
+1. **Check if subnets exist:**sudo vpcctl deploy-app myapp database --port 5432
+
+```bash
+
+sudo vpcctl inspect myvpc# API server
+
+```sudo vpcctl deploy-app myapp api --port 3000
+
 ```
 
-**Testing the deployed app:**
-```bash
-# From another subnet in the same VPC
-sudo ip netns exec ns-myapp-web curl http://10.10.2.2:5432
+2. **Check namespace connectivity:**
 
-# From the host
-curl http://10.10.1.2:8080
+```bash**Testing the deployed app:**
+
+# From private to public```bash
+
+sudo ip netns exec ns-myvpc-private ping -c 2 10.10.1.2# From another subnet in the same VPC
+
+```sudo ip netns exec ns-myapp-web curl http://10.10.2.2:5432
+
+
+
+3. **Check routing:**# From the host
+
+```bashcurl http://10.10.1.2:8080
+
+sudo ip netns exec ns-myvpc-private ip route```
+
 ```
 
 **Note:** This is for testing only. In real scenarios, you'd deploy actual applications (Node.js, Python Flask, PostgreSQL, etc.) inside the namespaces.
 
----
+Should show:
 
-### 4. `stop-app` - Stop a Running Application
+```---
+
+default via 10.10.2.1 dev v-myvpc-priv
+
+10.10.2.0/24 dev v-myvpc-priv scope link### 4. `stop-app` - Stop a Running Application
+
+```
 
 **Purpose:** Stop an application that was started with `deploy-app`.
 
-**Syntax:**
-```bash
-sudo vpcctl stop-app <vpc-name> <subnet-name>
-```
+4. **Check firewall:**
 
-Under the hood (simplified):
-```bash
-# Gracefully stop the test server running inside the subnet namespace
-ip netns exec ns-<vpc-name>-<subnet-name> pkill -TERM -f 'http.server' || true
+```bash**Syntax:**
 
-# vpcctl also tracks PIDs in metadata to ensure reliable cleanup
-```
+sudo iptables -L -n -v | grep myvpc```bash
 
-**What happens internally:**
-1. Looks up the PID from metadata
-2. Kills the process
-3. Removes app entry from metadata
+```sudo vpcctl stop-app <vpc-name> <subnet-name>
 
-**Examples:**
-```bash
-sudo vpcctl stop-app myapp web
 ```
 
 ---
 
-### 5. `enable-nat` - Enable Internet Access
+Under the hood (simplified):
 
-**Purpose:** Allow subnets to access the internet using the host's IP address (NAT).
+### Problem: No internet access from public subnet```bash
+
+# Gracefully stop the test server running inside the subnet namespace
+
+**Debug steps:**ip netns exec ns-<vpc-name>-<subnet-name> pkill -TERM -f 'http.server' || true
+
+
+
+1. **Check NAT is enabled:**# vpcctl also tracks PIDs in metadata to ensure reliable cleanup
+
+```bash```
+
+sudo vpcctl inspect myvpc | grep -A 3 '"nat"'
+
+```**What happens internally:**
+
+1. Looks up the PID from metadata
+
+2. **Check IP forwarding:**2. Kills the process
+
+```bash3. Removes app entry from metadata
+
+sysctl net.ipv4.ip_forward
+
+```**Examples:**
+
+```bash
+
+Should be `1`. If not:sudo vpcctl stop-app myapp web
+
+```bash```
+
+sudo sysctl -w net.ipv4.ip_forward=1
+
+```---
+
+
+
+3. **Check NAT rules:**### 5. `enable-nat` - Enable Internet Access
+
+```bash
+
+sudo iptables -t nat -L -n -v | grep 10.10.1**Purpose:** Allow subnets to access the internet using the host's IP address (NAT).
+
+```
 
 **Syntax:**
-```bash
-sudo vpcctl enable-nat <vpc-name> --interface <host-interface>
-```
 
-**Parameters:**
-- `<vpc-name>`: Name of the VPC
+Should show MASQUERADE rule.```bash
+
+sudo vpcctl enable-nat <vpc-name> --interface <host-interface>
+
+4. **Test from namespace:**```
+
+```bash
+
+sudo ip netns exec ns-myvpc-public ping -c 2 8.8.8.8**Parameters:**
+
+```- `<vpc-name>`: Name of the VPC
+
 - `--interface`: Host network interface (eth0, enp0s3, wlan0, etc.)
 
+---
+
 **Optional flags:**
-- `--subnet-filter`: Only enable NAT for specific subnets (comma-separated)
 
-**What happens internally:**
+### Problem: VPC peering not working- `--subnet-filter`: Only enable NAT for specific subnets (comma-separated)
+
+
+
+**Debug steps:****What happens internally:**
+
 1. Enables IP forwarding: `sysctl net.ipv4.ip_forward=1`
-2. Adds MASQUERADE rule: `iptables -t nat -A POSTROUTING -s <vpc-cidr> -o <interface> -j MASQUERADE`
-3. Adds FORWARD rules to allow traffic
-4. Records rules in metadata for cleanup
 
-**Examples:**
-```bash
-# Enable NAT for entire VPC
-sudo vpcctl enable-nat myapp --interface eth0
+1. **Check peering configuration:**2. Adds MASQUERADE rule: `iptables -t nat -A POSTROUTING -s <vpc-cidr> -o <interface> -j MASQUERADE`
 
-# Enable NAT only for specific subnets
-sudo vpcctl enable-nat myapp --interface eth0 --subnet-filter public,web
+```bash3. Adds FORWARD rules to allow traffic
+
+sudo vpcctl inspect myvpc | grep -A 10 '"peers"'4. Records rules in metadata for cleanup
+
 ```
 
-**Find your host interface:**
-```bash
+**Examples:**
+
+2. **Check both VPCs exist:**```bash
+
+```bash# Enable NAT for entire VPC
+
+sudo vpcctl listsudo vpcctl enable-nat myapp --interface eth0
+
+```
+
+# Enable NAT only for specific subnets
+
+3. **Check firewall rules:**sudo vpcctl enable-nat myapp --interface eth0 --subnet-filter public,web
+
+```bash```
+
+sudo iptables -L vpc-myvpc -n -v
+
+sudo iptables -L vpc-othervpc -n -v**Find your host interface:**
+
+``````bash
+
 ip route | grep default
-# Output: default via 192.168.1.1 dev eth0
-#                                      ^^^^ this is your interface
+
+4. **Test connectivity:**# Output: default via 192.168.1.1 dev eth0
+
+```bash#                                      ^^^^ this is your interface
+
+sudo ip netns exec ns-myvpc-public ping -c 2 10.20.1.2```
+
 ```
 
 **Common interfaces:**
-- `eth0`: Ethernet
+
+---- `eth0`: Ethernet
+
 - `enp0s3`: VirtualBox VM
-- `wlan0`: WiFi
+
+## Reference- `wlan0`: WiFi
+
 - `wlp2s0`: WiFi (newer naming)
 
+### Architecture Overview
+
 ---
+
+**Single VPC Architecture:**
 
 ### 6. `peer` - Connect Two VPCs
 
+![Single VPC Architecture](https://res.cloudinary.com/dvgk3fko3/image/upload/v1762848698/minimain_ulzxld.png)
+
 **Purpose:** Create a connection between two VPCs so specific subnets can communicate.
 
+---
+
 **Syntax:**
-```bash
+
+**VPC Peering (VPC-to-VPC Connection):**```bash
+
 sudo vpcctl peer <vpc1-name> <vpc2-name> --allow-cidrs <cidr1>,<cidr2>,...
-```
 
-Under the hood (simplified):
+![VPC Peering Architecture](https://res.cloudinary.com/dvgk3fko3/image/upload/v1762848698/peer_hw5cge.png)```
+
+
+
+---Under the hood (simplified):
+
 ```bash
-# Create a veth pair to bridge the two VPC bridges (logical link)
+
+### Command Reference# Create a veth pair to bridge the two VPC bridges (logical link)
+
 ip link add v-<vpc1>-<vpc2>-a type veth peer name v-<vpc1>-<vpc2>-b
-ip link set v-<vpc1>-<vpc2>-a master br-<vpc1>
-ip link set v-<vpc1>-<vpc2>-b master br-<vpc2>
-ip link set v-<vpc1>-<vpc2>-a up
-ip link set v-<vpc1>-<vpc2>-b up
 
-# For each allowed CIDR create ACCEPT rules (chain names are namespaced)
-iptables -N vpc-peer-<vpc1>-<vpc2> 2>/dev/null || true
-iptables -A vpc-peer-<vpc1>-<vpc2> -s <cidr1> -d <cidr2> -j ACCEPT -m comment --comment peer-allow
-```
+| Command | Description | Example |ip link set v-<vpc1>-<vpc2>-a master br-<vpc1>
 
-**Parameters:**
-- `<vpc1-name>`, `<vpc2-name>`: Names of the VPCs to connect
-- `--allow-cidrs`: Comma-separated list of CIDR blocks allowed to communicate
+|---------|-------------|---------|ip link set v-<vpc1>-<vpc2>-b master br-<vpc2>
+
+| `create` | Create a new VPC | `sudo vpcctl create myvpc --cidr 10.10.0.0/16` |
+| `add-subnet` | Add a subnet to a VPC | `sudo vpcctl add-subnet myvpc public --cidr 10.10.1.0/24` |
+| `enable-nat` | Enable internet access via NAT | `sudo vpcctl enable-nat myvpc --interface eth0` |
+| `peer` | Connect two VPCs | `sudo vpcctl peer myvpc othervpc --allow-cidrs 10.10.1.0/24,10.20.1.0/24` |
+| `apply-policy` | Apply firewall rules (JSON) | `sudo vpcctl apply-policy myvpc policy.json` |
+| `deploy-app` | Start HTTP server in subnet | `sudo vpcctl deploy-app myvpc public --port 8080` |
+| `stop-app` | Stop running application | `sudo vpcctl stop-app myvpc public` |
+| `list` | List all VPCs | `sudo vpcctl list` |
+| `inspect` | Show VPC metadata | `sudo vpcctl inspect myvpc` |
+| `delete` | Delete a VPC | `sudo vpcctl delete myvpc` |
+| `cleanup-all` | Delete all VPCs | `sudo vpcctl cleanup-all` |
+| `verify` | Check for orphaned resources | `sudo vpcctl verify` |
 
 **What happens internally:**
-1. Creates a veth pair between the two VPC bridges
+
+---1. Creates a veth pair between the two VPC bridges
+
 2. Adds iptables rules to allow traffic for specified CIDRs
-3. Adds DROP rule for all other traffic (security)
+
+### CIDR Notation Quick Reference3. Adds DROP rule for all other traffic (security)
+
 4. Records peering info in both VPCs' metadata
 
-**Examples:**
-```bash
-# Create two VPCs
-sudo vpcctl create app1 --cidr 10.10.0.0/16
-sudo vpcctl create app2 --cidr 10.20.0.0/16
+| CIDR | Usable IPs | Use Case |
 
-# Add subnets
+|------|-----------|----------|**Examples:**
+
+| /8 | 16,777,216 | Entire organization |```bash
+
+| /16 | 65,536 | VPC (multiple subnets) |# Create two VPCs
+
+| /20 | 4,096 | Large subnet |sudo vpcctl create app1 --cidr 10.10.0.0/16
+
+| /24 | 256 | Standard subnet |sudo vpcctl create app2 --cidr 10.20.0.0/16
+
+| /28 | 16 | Small subnet |
+
+| /32 | 1 | Single host |# Add subnets
+
 sudo vpcctl add-subnet app1 web --cidr 10.10.1.0/24
-sudo vpcctl add-subnet app2 api --cidr 10.20.1.0/24
 
-# Peer them (allow only web and api subnets to talk)
-sudo vpcctl peer app1 app2 --allow-cidrs 10.10.1.0/24,10.20.1.0/24
-```
+**Our consistent example:**
 
-**Use cases:**
+- VPC: 10.10.0.0/16 (whole range: 65,536 addresses)
+- Public subnet: 10.10.1.0/24 (256 addresses)
+- Private subnet: 10.10.2.0/24 (256 addresses)
+- Second VPC: 10.20.0.0/16 (for peering demos)
+
+
+
+---**Use cases:**
+
 - Main app needs to talk to analytics service
+
 - Frontend VPC needs to reach backend VPC
+
 - Staging environment needs to access shared services
+
+**1. Plan Your IP Address Space**
 
 **Security:** Only the CIDRs you specify can communicate. Everything else is blocked.
 
----
+❌ **Bad:**
+
+```bash---
+
+sudo vpcctl create app1 --cidr 10.0.0.0/24
+
+sudo vpcctl create app2 --cidr 10.0.0.0/24  # CONFLICT!
 
 ### 7. `apply-policy` - Apply Firewall Rules
 
+```
+
 **Purpose:** Apply custom ingress and egress firewall rules to a subnet.
 
-**Syntax:**
-```bash
+✅ **Good:**
+
+```bash**Syntax:**
+
+sudo vpcctl create dev --cidr 10.10.0.0/16```bash
+
+sudo vpcctl create staging --cidr 10.20.0.0/16
+
 sudo vpcctl apply-policy <vpc-name> <policy-file.json>
+
+sudo vpcctl create prod --cidr 10.30.0.0/16
+```
+
 ```
 
 **Parameters:**
-- `<vpc-name>`: Name of the VPC
+
+---- `<vpc-name>`: Name of the VPC
+
 - `<policy-file.json>`: Path to JSON policy file
 
+**2. Use Descriptive Names**
+
 **Policy file format:**
-```json
-{
-  "subnet": "10.10.1.0/24",
-  "ingress": [
-    {"port": 80, "protocol": "tcp", "action": "allow"},
-    {"port": 443, "protocol": "tcp", "action": "allow"},
-    {"port": 22, "protocol": "tcp", "action": "deny"}
-  ],
-  "egress": [
-    {"port": 25, "protocol": "tcp", "action": "deny"},
-    {"port": 80, "protocol": "tcp", "action": "allow"}
-  ]
-}
-```
 
-**What happens internally:**
-1. Reads the JSON policy
-2. Translates rules to iptables commands
-3. Executes commands inside the namespace using `ip netns exec`
-4. Records policy in metadata
-
-**Examples:**
-
-**Example 1: Web Server (allow HTTP/HTTPS, block SSH)**
-```json
-{
-  "subnet": "10.10.1.0/24",
-  "ingress": [
-    {"port": 80, "protocol": "tcp", "action": "allow"},
-    {"port": 443, "protocol": "tcp", "action": "allow"},
-    {"port": 22, "protocol": "tcp", "action": "deny"}
-  ],
-  "egress": []
-}
-```
+❌ **Bad:**
 
 ```bash
-sudo vpcctl apply-policy myapp web_policy.json
+sudo vpcctl create vpc1 --cidr 10.0.0.0/16
+sudo vpcctl add-subnet vpc1 sub1 --cidr 10.0.1.0/24
 ```
 
-**Example 2: Database (allow only PostgreSQL, block everything else)**
 ```json
 {
-  "subnet": "10.10.2.0/24",
+  "subnet": "10.10.1.0/24",
   "ingress": [
-    {"port": 5432, "protocol": "tcp", "action": "allow"}
-  ],
-  "egress": [
     {"port": 80, "protocol": "tcp", "action": "allow"},
-    {"port": 443, "protocol": "tcp", "action": "allow"}
-  ]
-}
-```
+    {"port": 443, "protocol": "tcp", "action": "allow"},
 
-**Actions:**
-- `allow`: Permit traffic
+✅ **Good:**    {"port": 22, "protocol": "tcp", "action": "deny"}
+
+```bash  ],
+
+sudo vpcctl create ecommerce --cidr 10.0.0.0/16  "egress": [
+
+sudo vpcctl add-subnet ecommerce web-tier --cidr 10.0.1.0/24    {"port": 25, "protocol": "tcp", "action": "deny"},
+
+sudo vpcctl add-subnet ecommerce database --cidr 10.0.2.0/24    {"port": 80, "protocol": "tcp", "action": "allow"}
+
+```  ]
+
+}
+
+---```
+
+
+
+**3. Always Clean Up****What happens internally:**
+
+1. Reads the JSON policy
+
+After testing:2. Translates rules to iptables commands
+
+```bash3. Executes commands inside the namespace using `ip netns exec`
+
+sudo vpcctl delete test-vpc4. Records policy in metadata
+
+sudo vpcctl verify  # Check for orphans
+
+```**Examples:**
+
+
+
+---**Example 1: Web Server (allow HTTP/HTTPS, block SSH)**
+
+```json
+
+### Quick Tips{
+
+  "subnet": "10.10.1.0/24",
+
+**Tip 1:** Use tab completion for namespace names:  "ingress": [
+
+```bash    {"port": 80, "protocol": "tcp", "action": "allow"},
+
+sudo ip netns exec ns-<TAB><TAB>    {"port": 443, "protocol": "tcp", "action": "allow"},
+
+```    {"port": 22, "protocol": "tcp", "action": "deny"}
+
+  ],
+
+**Tip 2:** Create aliases for common commands:  "egress": []
+
+```bash}
+
+alias vpc='sudo vpcctl'```
+
+alias nsexec='sudo ip netns exec'
+
+``````bash
+
+sudo vpcctl apply-policy myapp web_policy.json
+
+Then:```
+
+```bash
+
+vpc list**Example 2: Database (allow only PostgreSQL, block everything else)**
+
+nsexec ns-myvpc-public curl http://10.10.2.2:8081```json
+
+```{
+
+  "subnet": "10.10.2.0/24",
+
+**Tip 3:** Use `jq` for pretty JSON output:  "ingress": [
+
+```bash    {"port": 5432, "protocol": "tcp", "action": "allow"}
+
+sudo apt install jq  ],
+
+sudo vpcctl inspect myvpc | jq '.'  "egress": [
+
+```    {"port": 80, "protocol": "tcp", "action": "allow"},
+
+    {"port": 443, "protocol": "tcp", "action": "allow"}
+
+---  ]
+
+}
+
+
+
+
+
+**Author:** DestinyObs  **Actions:**
+
+**Tagline:** iDeploy | iSecure | iSustain  - `allow`: Permit traffic
+
 - `deny`: Block traffic
 
-**Protocols:**
-- `tcp`: TCP traffic
-- `udp`: UDP traffic
-- `icmp`: Ping and ICMP
+Built for HNG Internship Stage 4 - DevOps Track
 
----
+**Protocols:**
+
+**GitHub Repository:** https://github.com/DestinyObs/HNGi13-Stage4-vpcctl- `tcp`: TCP traffic
+
+- `udp`: UDP traffic
+
+---- `icmp`: Ping and ICMP
+
+
+
+**You're now ready to build your own VPCs on Linux!** 🎉---
+
+
+
+Start with the [Quick Start](#quick-start-your-first-vpc) section and work through each step. If you get stuck, check the [Troubleshooting](#troubleshooting) section or inspect your VPC with `sudo vpcctl inspect myvpc`.
 
 ### 8. `list` - List All VPCs
 
-**Purpose:** Show all VPCs you've created.
+
+
+Happy networking! 🚀**Purpose:** Show all VPCs you've created.
+
 
 **Syntax:**
 ```bash
@@ -1278,8 +1260,6 @@ vpcctl --dry-run add-subnet test web --cidr 10.99.1.0/24
 - Verifying commands before execution
 
 ---
-
-## Advanced Scenarios
 
 ## Advanced Scenarios
 
@@ -2036,5 +2016,16 @@ You now have a complete understanding of:
 
 **Author's Note:** This guide was written to be beginner-friendly. If you're reading this and something is unclear, that's a bug in the documentation, not in your understanding. Re-read the section, try the examples, and experiment!
 
+---
+
+## Credits
+
+Author: DestinyObs  
+Tagline: iDeploy | iSecure | iSustain  
+GitHub: https://github.com/DestinyObs/HNGi13-Stage4-vpcctl
+
+---
+
 **Happy networking!**
-**I'm DestinyObs, iDeploy | iSecure | iSustain!**
+
+**I'm DestinyObs — iDeploy | iSecure | iSustain!**
