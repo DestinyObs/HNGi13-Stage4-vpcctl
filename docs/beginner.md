@@ -341,9 +341,9 @@ curl -O https://github.com/DestinyObs/HNGi13-Stage4-vpcctl/blob/main/vpcctl.py
 chmod +x vpcctl.py
 ```
 
-#### Step 3: Install vpcctl as a Command (Optional but Recommended)
+#### Step 3: Install vpcctl as a Command (Recommended)
 
-This lets you type `vpcctl` instead of `python3 vpcctl.py`:
+Install vpcctl so you can use it as a system command:
 
 ```bash
 # Make it executable
@@ -361,6 +361,14 @@ vpcctl --help
 Run the parser check (this is safe and makes no system changes):
 ```bash
 sudo vpcctl flag-check
+```
+
+What this validates (no system changes):
+
+```text
+- Loads the CLI argument parser and the command dispatch table
+- Verifies subcommands/flags can be parsed correctly
+- Exits immediately without creating namespaces, bridges, or iptables rules
 ```
 
 You should see: "Parser check OK"
@@ -385,6 +393,24 @@ You're building a blog platform with:
 sudo vpcctl create blog --cidr 10.20.0.0/16
 ```
 
+Under the hood (what vpcctl runs):
+
+```bash
+# Create a dedicated virtual switch (bridge) for this VPC
+ip link add br-blog type bridge
+
+# Assign the VPC gateway IP to the bridge (first IP of the CIDR)
+ip addr add 10.20.0.1/16 dev br-blog
+
+# Bring the bridge up so interfaces can attach and pass traffic
+ip link set br-blog up
+```
+
+Explanation:
+- The bridge br-blog is the "switch" interconnecting all subnets of the blog VPC
+- 10.20.0.1/16 becomes the VPC gateway used by subnets inside the VPC
+- Bringing the bridge up activates it so later subnets can attach via veth
+
 **What this does:**
 - Creates a VPC named "blog"
 - Assigns IP range 10.20.0.0/16 (65,534 possible addresses)
@@ -403,6 +429,32 @@ Created VPC: blog (10.20.0.0/16, bridge: br-blog)
 ```bash
 sudo vpcctl add-subnet blog webserver --cidr 10.20.1.0/24
 ```
+
+Under the hood, this wires a namespace to the VPC bridge:
+
+```bash
+# Create an isolated Linux network namespace for the subnet
+ip netns add ns-blog-webserver
+
+# Create a veth pair (two virtual Ethernet interfaces back-to-back)
+ip link add v-blog-webser-a type veth peer name v-blog-webser-b
+
+# Move one end into the namespace (becomes the subnet's gateway-facing NIC)
+ip link set v-blog-webser-a netns ns-blog-webserver
+
+# Attach the other end to the VPC bridge so it can talk to other subnets
+ip link set v-blog-webser-b master br-blog
+
+# Inside the namespace, assign IPs and bring interfaces up (simplified)
+ip netns exec ns-blog-webserver ip addr add 10.20.1.1/24 dev v-blog-webser-a
+ip netns exec ns-blog-webserver ip link set v-blog-webser-a up
+ip link set v-blog-webser-b up
+```
+
+Key points:
+- veth pair acts like a virtual patch cable between the subnet and the bridge
+- Namespace holds the subnet's processes and interfaces isolated from the host
+- The .1 address typically serves as the subnet's internal default gateway
 
 **What this does:**
 - Creates a subnet named "webserver" in the blog VPC
@@ -426,6 +478,22 @@ Added subnet webserver (10.20.1.0/24) to VPC blog
 sudo vpcctl add-subnet blog database --cidr 10.20.2.0/24
 ```
 
+Under the hood, very similar steps repeat with different names/IP:
+
+```bash
+ip netns add ns-blog-database
+ip link add v-blog-datab-a type veth peer name v-blog-datab-b
+ip link set v-blog-datab-a netns ns-blog-database
+ip link set v-blog-datab-b master br-blog
+ip netns exec ns-blog-database ip addr add 10.20.2.1/24 dev v-blog-datab-a
+ip netns exec ns-blog-database ip link set v-blog-datab-a up
+ip link set v-blog-datab-b up
+```
+
+Difference from the public subnet:
+- Same isolation pattern; only policies later will differentiate exposure
+- Separate namespace keeps database traffic segregated from web traffic
+
 **What this does:**
 - Creates another subnet for the database
 - Separate namespace `ns-blog-database`
@@ -442,6 +510,21 @@ sudo vpcctl deploy-app blog webserver --port 8080
 # Deploy database mock on port 5432
 sudo vpcctl deploy-app blog database --port 5432
 ```
+
+Under the hood (per deploy-app invocation):
+
+```bash
+# Execute a simple Python HTTP server inside the target subnet namespace
+ip netns exec ns-blog-webserver python3 -m http.server 8080 &
+# PID captured and stored in .vpcctl_data/blog/apps/webserver.json
+
+# For the database mock (simplified HTTP listener substitute)
+ip netns exec ns-blog-database python3 -m http.server 5432 &
+```
+
+What metadata tracks:
+- Namespace name, port, PID, timestamp
+- Enables later stop-app and inspect operations
 
 **What this does:**
 - Starts a Python HTTP server inside each namespace
@@ -480,6 +563,20 @@ ip route | grep default
 # Enable NAT (replace eth0 with your interface)
 sudo vpcctl enable-nat blog --interface eth0
 ```
+
+Under the hood (simplified):
+
+```bash
+# Turn on IPv4 forwarding globally (allows routing between namespaces and uplink)
+sysctl -w net.ipv4.ip_forward=1
+
+# Masquerade outbound packets from the VPC CIDR so they appear from the host interface
+iptables -t nat -A POSTROUTING -s 10.20.0.0/16 -o eth0 -j MASQUERADE -m comment --comment vpcctl-nat-blog
+```
+
+Notes:
+- MASQUERADE rewrites source IPs so return traffic finds its way back
+- Comment tag lets vpcctl avoid duplicating the rule and clean it up later
 
 **What this does:**
 - Adds iptables MASQUERADE rule
@@ -520,6 +617,25 @@ Apply the policy:
 ```bash
 sudo vpcctl apply-policy blog database_policy.json
 ```
+
+Under the hood (rules inside namespace):
+
+```bash
+# Allow PostgreSQL port
+ip netns exec ns-blog-database iptables -A INPUT -p tcp --dport 5432 -j ACCEPT -m comment --comment policy-ingress-allow-5432
+
+# Deny SSH port (placed before broader allows)
+ip netns exec ns-blog-database iptables -A INPUT -p tcp --dport 22 -j DROP -m comment --comment policy-ingress-deny-22
+
+# Allow outbound HTTP/HTTPS
+ip netns exec ns-blog-database iptables -A OUTPUT -p tcp --dport 80 -j ACCEPT -m comment --comment policy-egress-allow-80
+ip netns exec ns-blog-database iptables -A OUTPUT -p tcp --dport 443 -j ACCEPT -m comment --comment policy-egress-allow-443
+```
+
+Mechanics:
+- Policy JSON is parsed; each rule becomes a namespaced iptables entry
+- Comments let future apply-policy calls update or skip existing rules idempotently
+- Separation of INPUT vs OUTPUT enforces ingress vs egress direction cleanly
 
 **What this does:**
 - Adds iptables rules inside the database namespace

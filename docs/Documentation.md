@@ -1,234 +1,935 @@
-vpcctl — single-host VPC simulator (namespaces, bridges, veths, iptables)
-==============================================================
+# vpcctl — Complete Technical Documentation
 
-Purpose
-vpcctl — single-host VPC simulator (namespaces, bridges, veths, iptables)
-==============================================================
+## Table of Contents
+1. [Purpose](#purpose)
+2. [Architecture Overview](#architecture-overview)
+3. [Prerequisites](#prerequisites)
+4. [Installation](#installation)
+5. [Command Reference](#command-reference)
+6. [Advanced Features](#advanced-features)
+7. [Metadata and State Management](#metadata-and-state-management)
+8. [Testing and Validation](#testing-and-validation)
+9. [Troubleshooting](#troubleshooting)
+10. [Best Practices](#best-practices)
 
-Purpose
--------
-This repository implements a minimal, single‑host Virtual Private Cloud (VPC) simulator called `vpcctl`. It uses Linux network namespaces, veth pairs and bridges, plus iptables and NAT, to emulate isolated VPCs on one host. It's designed for teaching, testing and demos — not production networking.
+---
 
-What changed since the previous README
--------------------------------------
-You asked for a README that exactly matches the current `vpcctl.py` behavior and documents flags, idempotency, and policy features. This file has been audited and corrected to reflect the script's actual capabilities:
+## Purpose
 
-- Matches the implemented CLI flags (positional and preferred flag forms).
-- Documents the global `--dry-run` behavior and `flag-check` parser-only command.
-- Explains idempotency: iptables existence checks and comment matches, and the recorded host rule format used for deletion.
-- Documents `apply-policy` supporting both `ingress` and `egress` rules, with an example JSON in `policy_examples/`.
+`vpcctl` is a single-host Virtual Private Cloud (VPC) simulator that uses Linux network namespaces, veth pairs, bridges, and iptables to emulate cloud VPC environments locally. It's designed for:
 
-Prerequisites
--------------
-Host: a Linux machine (Ubuntu VM recommended). You must run the commands as root (sudo). The script is written for Python 3.
+- **Learning**: Understand cloud networking concepts hands-on
+- **Testing**: Validate network configurations before deploying to cloud
+- **Development**: Test multi-tier applications locally
+- **Demonstrations**: Show VPC concepts without cloud costs
 
-Install common packages (run on the Linux VM):
+### Key Features
+
+- **Complete VPC Isolation**: Each VPC runs in its own network environment
+- **Subnet Management**: Create public and private subnets with different access levels
+- **VPC Peering**: Connect VPCs with granular CIDR-based access control
+- **NAT Gateway**: Enable internet access for public subnets
+- **Security Policies**: JSON-based ingress/egress firewall rules
+- **Idempotent Operations**: Safe to re-run commands; existing resources are skipped
+- **Deterministic Cleanup**: All resources tracked in metadata for clean removal
+- **Dry-Run Mode**: Preview commands before execution
+
+---
+
+## Architecture Overview
+
+### How It Works
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      Host Machine                            │
+│                                                              │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │ VPC: myvpc (10.10.0.0/16)                              │ │
+│  │                                                         │ │
+│  │  Bridge: br-myvpc (10.10.0.1)                          │ │
+│  │    │                                                    │ │
+│  │    ├── veth ←→ Namespace: ns-myvpc-public             │ │
+│  │    │           └── IP: 10.10.1.2/24                    │ │
+│  │    │           └── App running on :8080                │ │
+│  │    │                                                    │ │
+│  │    └── veth ←→ Namespace: ns-myvpc-private            │ │
+│  │                └── IP: 10.10.2.2/24                    │ │
+│  │                └── Database running on :5432           │ │
+│  └────────────────────────────────────────────────────────┘ │
+│                                                              │
+│  iptables: NAT rules for internet access                    │
+│  Physical Interface: eth0 → Internet                        │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Linux Primitives Used
+
+1. **Network Namespaces** (`ip netns`): Isolated network environments for each subnet
+2. **Linux Bridges** (`br-*`): Virtual switches connecting subnets within a VPC
+3. **veth Pairs**: Virtual ethernet cables connecting namespaces to bridges
+4. **iptables**: Firewall rules for NAT, security policies, and VPC peering
+5. **Python HTTP Server**: Test applications for connectivity validation
+
+---
+
+## Prerequisites
+
+### System Requirements
+
+- **Operating System**: Linux (Ubuntu 20.04+, Debian 11+, or compatible)
+- **Python**: 3.8 or higher
+- **Privileges**: Root/sudo access required
+- **Kernel Modules**: `bridge`, `veth`, `xt_comment` (usually pre-loaded)
+
+### Required Packages
 
 ```bash
 sudo apt update
-sudo apt install -y python3 python3-pip iproute2 iptables curl tcpdump
+sudo apt install -y python3 iproute2 iptables curl
 ```
 
-Quick sanity checks (no changes)
--------------------------------
+**Package explanations:**
+- `python3`: Runtime for vpcctl and test HTTP servers
+- `iproute2`: Provides `ip` command for network management
+- `iptables`: Firewall and NAT rule management
+- `curl`: Testing connectivity
 
-Parser-only check (safe — no system changes):
+---
+
+## Installation
+
+### Method 1: Clone Repository (Recommended)
 
 ```bash
-sudo python3 vpcctl.py flag-check
+# Clone the repository
+git clone https://github.com/DestinyObs/HNGi13-Stage4-vpcctl.git
+cd HNGi13-Stage4-vpcctl
+
+# Make executable and install
+sudo chmod +x vpcctl.py
+sudo ln -sf "$(pwd)/vpcctl.py" /usr/local/bin/vpcctl
+
+# Verify installation
+vpcctl --help
 ```
 
-Automatic policy generation
----------------------------
-
-When a subnet is created with `add-subnet`, `vpcctl` now auto-generates a default JSON policy and applies it to the new subnet. This ensures the subnet has a sensible default for demos and graders so services like HTTP work immediately.
-
-Defaults applied on `add-subnet`:
-- Ingress: allow TCP ports 80 and 443; deny TCP port 22
-- Egress: none by default (to avoid blocking outbound connectivity during demos)
-
-The generated policy files are saved under the workspace `.vpcctl_data/` directory with names like `policy_<vpc>_<subnet>_<cidr>.json`. You can inspect, modify or re-apply them using the `apply-policy` subcommand.
-
-To view the auto-generated policy for a specific subnet:
+### Method 2: Direct Download
 
 ```bash
-ls -l .vpcctl_data/policy_<vpc>_<subnet>_*.json
-cat .vpcctl_data/policy_<vpc>_<subnet>_10.11.1.0_24.json
+# Download the script
+curl -O https://raw.githubusercontent.com/DestinyObs/HNGi13-Stage4-vpcctl/main/vpcctl.py
+
+# Make executable and install
+chmod +x vpcctl.py
+sudo ln -sf "$(pwd)/vpcctl.py" /usr/local/bin/vpcctl
 ```
 
-To re-apply or test a policy manually:
+### Fix Line Endings (if needed on Windows)
+
+If you get `/usr/bin/env: 'python3\r': No such file or directory`:
 
 ```bash
-sudo python3 vpcctl.py apply-policy <vpc> .vpcctl_data/policy_<vpc>_<subnet>_<cidr>.json
+sed -i 's/\r$//' vpcctl.py
 ```
 
-Dry-run mode (global `--dry-run`) prints commands without executing them:
+### Verify Installation
 
 ```bash
-python3 vpcctl.py --dry-run create myvpc --cidr 10.10.0.0/16
+# Check vpcctl is accessible
+which vpcctl
+
+# Test parser (safe, makes no changes)
+sudo vpcctl flag-check
 ```
 
-Command reference (full, with flags)
------------------------------------
-The CLI accepts both legacy positional arguments and preferred flag forms for ergonomics. The most important commands and their flag variants:
+---
 
-- create <name> [cidr]
-	- Positional: sudo python3 vpcctl.py create myvpc 10.10.0.0/16
-	- Flag:       sudo python3 vpcctl.py create myvpc --cidr 10.10.0.0/16
+## Command Reference
 
-- add-subnet <vpc> <name> [cidr] [--gw <ip>]
-	- Positional: sudo python3 vpcctl.py add-subnet myvpc public 10.10.1.0/24
-	- Flag:       sudo python3 vpcctl.py add-subnet myvpc public --cidr 10.10.1.0/24 --gw 10.10.1.1
+### Global Options
 
-- deploy-app <vpc> <subnet> [port]
-	- Positional: sudo python3 vpcctl.py deploy-app myvpc public 8080
-	- Flag:       sudo python3 vpcctl.py deploy-app myvpc public --port 8080
-	- Note: launched with `nohup` inside the namespace; PID and cmd are recorded.
+```bash
+vpcctl [--dry-run] <command> [options]
+```
 
-- enable-nat <vpc> <iface>
-	- Positional: sudo python3 vpcctl.py enable-nat myvpc eth0
-	- Flag:       sudo python3 vpcctl.py enable-nat myvpc --interface eth0
+**Global Flags:**
+- `--dry-run`: Preview commands without executing (no sudo required)
 
-- peer <vpc1> <vpc2> [--allow-cidrs x,y]
-	- sudo python3 vpcctl.py peer vpcA vpcB --allow-cidrs 10.10.1.0/24,10.20.1.0/24
-	- Default allow-list: both VPC CIDRs when omitted.
+### Core Commands
 
-- apply-policy <vpc> <policy.json>
-	- sudo python3 vpcctl.py apply-policy myvpc policy_examples/example_ingress_egress_policy.json
-	- Policy supports `ingress` (INPUT) and `egress` (OUTPUT).
+#### 1. `create` — Create a VPC
 
-- test-connectivity <target> [port] [--from-ns <ns>]
-	- sudo python3 vpcctl.py test-connectivity 10.10.1.5 80 --from-ns ns-myvpc-public
+**Syntax:**
+```bash
+sudo vpcctl create <vpc-name> --cidr <ip-range>
+```
 
-- stop-app <vpc> [--ns <ns>] [--pid <pid>]
-- delete <vpc>
-- cleanup-all
-- list, inspect, verify, run-demo, flag-check
+**Example:**
+```bash
+sudo vpcctl create myvpc --cidr 10.10.0.0/16
+```
 
-Behavioral details and safety
-------------------------------------
+**What it does:**
+- Creates a Linux bridge `br-<vpc>`
+- Assigns gateway IP (first IP in CIDR)
+- Creates iptables chain `vpc-<vpc>`
+- Saves metadata to `.vpcctl_data/vpc_<name>.json`
 
-1) Idempotent host iptables changes
- - Before adding a host-level iptables rule the script checks for existence (it replaces `-A`/`-I` with `-C` and runs iptables to detect presence). If the rule exists the add is skipped.
- - When adding host rules the script injects a comment matcher (`-m comment --comment "vpcctl:<info>"`) and records that exact tokenized command in metadata. That makes deletion more reliable.
+**Positional form (legacy):**
+```bash
+sudo vpcctl create myvpc 10.10.0.0/16
+```
 
-2) Deletion strategy
- - `delete` reads recorded `host_iptables` command lists and attempts deletion by replacing `-A`/`-I` with `-D`. If comments are present it also tries variants with the comment stripped. This is a robust, best-effort removal.
+---
 
-3) Policies
- - `apply_policy` writes rules inside the namespace (so they're scoped to the subnet). It supports `ingress` and `egress` sections in JSON.
+#### 2. `add-subnet` — Add Subnet to VPC
 
-4) Naming & truncation
- - The helper `safe_ifname()` sanitizes and truncates names to respect kernel interface name limits (~15 chars). Use short logical names for VPCs/subnets to keep generated names readable.
+**Syntax:**
+```bash
+sudo vpcctl add-subnet <vpc> <subnet-name> --cidr <ip-range> [--gw <gateway-ip>]
+```
 
-5) Background apps
- - `deploy-app` uses a shell `nohup` invocation and echoes the background PID; that PID is parsed and recorded. Logs written to `/tmp/vpcctl-<ns>-http.log`.
+**Example:**
+```bash
+sudo vpcctl add-subnet myvpc public --cidr 10.10.1.0/24
+sudo vpcctl add-subnet myvpc private --cidr 10.10.2.0/24 --gw 10.10.2.254
+```
 
-Metadata format (precisely)
----------------------------
-Each VPC metadata file `.vpcctl_data/vpc_<name>.json` contains keys:
+**What it does:**
+- Creates network namespace `ns-<vpc>-<subnet>`
+- Creates veth pair connecting namespace to VPC bridge
+- Assigns IP addresses
+- Sets up routing inside namespace
+- Auto-generates and applies default security policy
+- Saves subnet metadata
 
-- name (str)
-- cidr (str)
-- bridge (str)
-- subnets (list of {name, cidr, ns, gw, host_ip, veth})
-- host_iptables (list of token lists; includes comment tokens when added)
-- chain (str) — per-VPC iptables chain name
-- apps (list of {ns, port, pid, cmd})
-- peers (list of peer records)
-- nat (dict with interface)
+**Default Policy Applied:**
+- **Ingress**: Allow TCP 80, 443; Deny TCP 22
+- **Egress**: Allow all (no restrictions)
 
-Policy JSON example
--------------------
-File: `policy_examples/example_ingress_egress_policy.json`
+---
 
+#### 3. `enable-nat` — Enable Internet Access
+
+**Syntax:**
+```bash
+sudo vpcctl enable-nat <vpc> --interface <host-interface> [--subnet <subnet-name>] [--all-subnets]
+```
+
+**Examples:**
+```bash
+# NAT for all public subnets (default behavior)
+sudo vpcctl enable-nat myvpc --interface eth0
+
+# NAT for specific subnet only
+sudo vpcctl enable-nat myvpc --interface eth0 --subnet public
+
+# NAT for ALL subnets (including private)
+sudo vpcctl enable-nat myvpc --interface eth0 --all-subnets
+```
+
+**What it does:**
+- Adds iptables MASQUERADE rule for specified subnets
+- Enables IP forwarding (`net.ipv4.ip_forward=1`)
+- Records NAT configuration in metadata
+
+**Find your interface:**
+```bash
+ip route | grep default
+# Look for "dev <interface-name>"
+```
+
+---
+
+#### 4. `peer` — Connect Two VPCs
+
+**Syntax:**
+```bash
+sudo vpcctl peer <vpc1> <vpc2> [--allow-cidrs <cidr1>,<cidr2>,...]
+```
+
+**Examples:**
+```bash
+# Peer with default (allow all VPC CIDRs)
+sudo vpcctl peer vpc1 vpc2
+
+# Peer with specific subnet restrictions
+sudo vpcctl peer vpc1 vpc2 --allow-cidrs 10.10.1.0/24,10.20.1.0/24
+```
+
+**What it does:**
+- Creates bidirectional iptables FORWARD rules
+- Adds routes between VPC bridges
+- Restricts traffic to specified CIDRs (if provided)
+- Records peering in both VPC metadata files
+
+**Idempotency:** Re-running with same parameters skips existing rules
+
+---
+
+#### 5. `apply-policy` — Apply Security Policy
+
+**Syntax:**
+```bash
+sudo vpcctl apply-policy <vpc> <policy-file.json>
+```
+
+**Example:**
+```bash
+sudo vpcctl apply-policy myvpc policy_examples/example_ingress_egress_policy.json
+```
+
+**Policy File Format:**
 ```json
 {
-	"subnet": "10.10.1.0/24",
-	"ingress": [
-		{"port": 80, "protocol": "tcp", "action": "allow"},
-		{"port": 22, "protocol": "tcp", "action": "deny"}
-	],
-	"egress": [
-		{"port": 80, "protocol": "tcp", "action": "allow"},
-		{"port": 25, "protocol": "tcp", "action": "deny"}
-	]
+  "subnet": "10.10.1.0/24",
+  "ingress": [
+    {"port": 80, "protocol": "tcp", "action": "allow"},
+    {"port": 443, "protocol": "tcp", "action": "allow"},
+    {"port": 22, "protocol": "tcp", "action": "deny"}
+  ],
+  "egress": [
+    {"port": 443, "protocol": "tcp", "action": "allow"},
+    {"port": 25, "protocol": "tcp", "action": "deny"}
+  ]
 }
 ```
 
-Precise testing steps (run as root)
-----------------------------------
+**What it does:**
+- Finds matching subnet by CIDR
+- Applies iptables rules inside the subnet's namespace
+- Ingress rules → INPUT chain
+- Egress rules → OUTPUT chain
+- Merges with existing auto-generated policies
 
-1) Parser and dry-run
+**Example policy file location:**
+- `policy_examples/example_ingress_egress_policy.json`
 
+---
+
+#### 6. `deploy-app` — Deploy Test Application
+
+**Syntax:**
 ```bash
-sudo python3 vpcctl.py flag-check
-python3 vpcctl.py --dry-run create demo --cidr 10.11.0.0/16
+sudo vpcctl deploy-app <vpc> <subnet> --port <port>
 ```
 
-2) Create VPC and subnet, deploy app
-
+**Example:**
 ```bash
-sudo python3 vpcctl.py create t1_vpc --cidr 10.30.0.0/16
-sudo python3 vpcctl.py add-subnet t1_vpc public --cidr 10.30.1.0/24
-sudo python3 vpcctl.py deploy-app t1_vpc public --port 8080
+sudo vpcctl deploy-app myvpc public --port 8080
 ```
 
-3) Enable NAT and verify
+**What it does:**
+- Starts Python HTTP server inside subnet namespace
+- Runs with `nohup` in background
+- Records PID in metadata
+- Logs to `/tmp/vpcctl-<namespace>-http.log`
+
+**Access the app:**
+```bash
+# Get subnet IP (usually .2)
+sudo vpcctl inspect myvpc
+
+# Test from another namespace
+sudo ip netns exec ns-myvpc-private curl http://10.10.1.2:8080
+```
+
+---
+
+#### 7. `test-connectivity` — Test Network Connectivity
+
+**Syntax:**
+```bash
+sudo vpcctl test-connectivity <target-ip> <port> --from-ns <namespace>
+```
+
+**Example:**
+```bash
+sudo vpcctl test-connectivity 10.10.1.2 8080 --from-ns ns-myvpc-private
+```
+
+**What it does:**
+- Runs `curl` from specified namespace to target
+- Tests if firewall rules allow traffic
+- Useful for validating policies and peering
+
+---
+
+#### 8. `list` — List All VPCs
+
+**Syntax:**
+```bash
+sudo vpcctl list
+```
+
+**Output:**
+```
+VPCs:
+- myvpc
+- production
+- testing
+```
+
+---
+
+#### 9. `inspect` — Show VPC Details
+
+**Syntax:**
+```bash
+sudo vpcctl inspect <vpc-name>
+```
+
+**Example:**
+```bash
+sudo vpcctl inspect myvpc
+```
+
+**Output:** Full JSON metadata including:
+- CIDR range
+- Bridge name
+- All subnets with IPs
+- Running applications
+- Active peering connections
+- NAT configuration
+- Applied policies
+
+---
+
+#### 10. `stop-app` — Stop Application
+
+**Syntax:**
+```bash
+sudo vpcctl stop-app <vpc> [--ns <namespace>] [--pid <process-id>]
+```
+
+**Examples:**
+```bash
+# Stop all apps in a VPC
+sudo vpcctl stop-app myvpc
+
+# Stop app in specific namespace
+sudo vpcctl stop-app myvpc --ns ns-myvpc-public
+
+# Stop specific PID
+sudo vpcctl stop-app myvpc --pid 12345
+```
+
+---
+
+#### 11. `delete` — Delete VPC
+
+**Syntax:**
+```bash
+sudo vpcctl delete <vpc-name>
+```
+
+**Example:**
+```bash
+sudo vpcctl delete myvpc
+```
+
+**What it does:**
+- Stops all running applications
+- Deletes all subnet namespaces
+- Removes veth pairs
+- Deletes bridge
+- Removes iptables rules (uses recorded commands)
+- Deletes metadata file
+
+---
+
+#### 12. `cleanup-all` — Delete Everything
+
+**Syntax:**
+```bash
+sudo vpcctl cleanup-all
+```
+
+**What it does:**
+- Deletes ALL VPCs
+- Useful for complete reset
+
+---
+
+#### 13. `verify` — Check for Orphans
+
+**Syntax:**
+```bash
+sudo vpcctl verify
+```
+
+**What it does:**
+- Lists all namespaces on system
+- Compares with vpcctl metadata
+- Reports orphaned resources
+
+---
+
+#### 14. `flag-check` — Parser Validation
+
+**Syntax:**
+```bash
+sudo vpcctl flag-check
+```
+
+**What it does:**
+- Validates argument parser
+- Safe test (makes no system changes)
+- Useful for CI/CD validation
+
+---
+
+## Advanced Features
+
+### Automatic Policy Generation
+
+When you create a subnet, `vpcctl` automatically generates and applies a default security policy:
+
+**Default Policy:**
+```json
+{
+  "subnet": "10.10.1.0/24",
+  "ingress": [
+    {"port": 80, "protocol": "tcp", "action": "allow"},
+    {"port": 443, "protocol": "tcp", "action": "allow"},
+    {"port": 22, "protocol": "tcp", "action": "deny"}
+  ],
+  "egress": []
+}
+```
+
+**Policy files saved to:**
+```
+.vpcctl_data/policy_<vpc>_<subnet>_<cidr>.json
+```
+
+**View auto-generated policy:**
+```bash
+ls -l .vpcctl_data/policy_*
+cat .vpcctl_data/policy_myvpc_public_10.10.1.0_24.json
+```
+
+### Idempotent Operations
+
+`vpcctl` is designed to be idempotent — safe to re-run:
+
+**iptables Rules:**
+- Checks if rule exists before adding (using `-C` flag)
+- Injects comment markers for reliable deletion
+- Records exact commands in metadata
+
+**Resources:**
+- Bridges: Checks if bridge exists before creating
+- Namespaces: Checks if namespace exists
+- Peering: Skips duplicate peering connections
+
+### Metadata-Driven Cleanup
+
+All operations are recorded in JSON files under `.vpcctl_data/`:
 
 ```bash
-sudo python3 vpcctl.py enable-nat t1_vpc --interface eth0
+.vpcctl_data/
+├── vpc_myvpc.json          # VPC metadata
+├── vpc_production.json
+└── policy_myvpc_public_10.10.1.0_24.json
+```
+
+**Metadata includes:**
+- Bridge and namespace names
+- Exact iptables commands run
+- Application PIDs
+- Peering relationships
+- NAT configuration
+
+This ensures `delete` can cleanly remove everything.
+
+---
+
+## Metadata and State Management
+
+### Metadata Files
+
+Location: `.vpcctl_data/vpc_<name>.json`
+
+**Structure:**
+```json
+{
+  "name": "myvpc",
+  "cidr": "10.10.0.0/16",
+  "bridge": "br-myvpc",
+  "chain": "vpc-myvpc",
+  "subnets": [
+    {
+      "name": "public",
+      "cidr": "10.10.1.0/24",
+      "ns": "ns-myvpc-public",
+      "gw": "10.10.1.1",
+      "host_ip": "10.10.1.2",
+      "veth": {"host": "v-myvpc-pub-b", "ns": "v-myvpc-pub-a"}
+    }
+  ],
+  "host_iptables": [
+    ["iptables", "-A", "FORWARD", "-m", "comment", "--comment", "vpcctl:myvpc", ...]
+  ],
+  "apps": [
+    {
+      "ns": "ns-myvpc-public",
+      "port": 8080,
+      "pid": 12345,
+      "cmd": "python3 -m http.server 8080"
+    }
+  ],
+  "peers": [
+    {
+      "peer_vpc": "othervpc",
+      "allow_cidrs": ["10.10.1.0/24", "10.20.1.0/24"]
+    }
+  ],
+  "nat": {
+    "interface": "eth0",
+    "subnets": ["public"]
+  }
+}
+```
+
+---
+
+## Testing and Validation
+
+### Acceptance Test Script
+
+Location: `scripts/acceptance_test.sh`
+
+Comprehensive test covering:
+- VPC creation and isolation
+- Subnet connectivity
+- NAT gateway functionality
+- VPC peering
+- Security policies
+- Cleanup verification
+
+**Run dry-run (safe):**
+```bash
+sudo ./scripts/acceptance_test.sh
+```
+
+**Run full test:**
+```bash
+sudo ./scripts/acceptance_test.sh --apply --iface eth0
+```
+
+**Keep resources for debugging:**
+```bash
+sudo ./scripts/acceptance_test.sh --apply --iface eth0 --keep
+```
+
+**Test outputs saved to:**
+```
+docs/samples/actual-<timestamp>/
+├── vpcctl_help.txt
+├── flag_check.txt
+├── namespaces_after_t1_create.txt
+├── iptables_filter_all.txt
+├── curl_private_to_public.html
+└── SUMMARY.txt
+```
+
+### Manual Testing
+
+**Test intra-VPC connectivity:**
+```bash
+# Create VPC and subnets
+sudo vpcctl create test --cidr 10.30.0.0/16
+sudo vpcctl add-subnet test public --cidr 10.30.1.0/24
+sudo vpcctl add-subnet test private --cidr 10.30.2.0/24
+
+# Deploy apps
+sudo vpcctl deploy-app test public --port 8080
+sudo vpcctl deploy-app test private --port 8081
+
+# Test private → public
+sudo ip netns exec ns-test-private curl http://10.30.1.2:8080
+```
+
+**Test VPC isolation:**
+```bash
+# Create second VPC
+sudo vpcctl create test2 --cidr 10.40.0.0/16
+sudo vpcctl add-subnet test2 web --cidr 10.40.1.0/24
+sudo vpcctl deploy-app test2 web --port 8080
+
+# Try to reach test2 from test (should fail)
+sudo ip netns exec ns-test-public curl --max-time 5 http://10.40.1.2:8080
+# Expected: timeout
+
+# Enable peering
+sudo vpcctl peer test test2
+
+# Try again (should succeed)
+sudo ip netns exec ns-test-public curl http://10.40.1.2:8080
+```
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+#### 1. Line Ending Error
+
+**Error:**
+```
+/usr/bin/env: 'python3\r': No such file or directory
+```
+
+**Fix:**
+```bash
+sed -i 's/\r$//' vpcctl.py
+```
+
+**Cause:** Windows CRLF line endings; Linux needs LF only
+
+---
+
+#### 2. Permission Denied
+
+**Error:**
+```
+[Errno 1] Operation not permitted
+```
+
+**Fix:**
+```bash
+# Use sudo for all operations
+sudo vpcctl create myvpc --cidr 10.10.0.0/16
+```
+
+---
+
+#### 3. Bridge Already Exists
+
+**Error:**
+```
+RTNETLINK answers: File exists
+```
+
+**Fix:**
+```bash
+# Delete existing VPC first
+sudo vpcctl delete myvpc
+
+# Or manually remove bridge
+sudo ip link delete br-myvpc
+```
+
+---
+
+#### 4. NAT Not Working
+
+**Symptoms:** Subnet can't reach internet
+
+**Debug:**
+```bash
+# Check IP forwarding
+sysctl net.ipv4.ip_forward
+# Should be 1
+
+# Enable if needed
+sudo sysctl -w net.ipv4.ip_forward=1
+
+# Check NAT rules
 sudo iptables -t nat -L -n -v | grep MASQUERADE
+
+# Test from namespace
+sudo ip netns exec ns-myvpc-public ping -c 2 8.8.8.8
 ```
 
-4) Peer idempotency check
+---
+
+#### 5. Orphaned Resources
+
+**Check for orphans:**
+```bash
+sudo vpcctl verify
+```
+
+**Manual cleanup:**
+```bash
+# List all namespaces
+sudo ip netns list
+
+# Delete specific namespace
+sudo ip netns delete ns-myvpc-public
+
+# List bridges
+ip link show type bridge
+
+# Delete bridge
+sudo ip link delete br-myvpc
+```
+
+---
+
+#### 6. Interface Name Too Long
+
+**Error:** Truncated interface names
+
+**Cause:** Linux interface names limited to 15 characters
+
+**Fix:** Use shorter VPC/subnet names
+```bash
+# Bad: Will be truncated
+sudo vpcctl create my-very-long-vpc-name --cidr 10.10.0.0/16
+
+# Good
+sudo vpcctl create myvpc --cidr 10.10.0.0/16
+```
+
+---
+
+## Best Practices
+
+### 1. Use Dry-Run for Testing
 
 ```bash
-sudo python3 vpcctl.py create t2_vpc --cidr 10.40.0.0/16
-sudo python3 vpcctl.py add-subnet t2_vpc public --cidr 10.40.1.0/24
-sudo python3 vpcctl.py peer t1_vpc t2_vpc --allow-cidrs 10.30.1.0/24,10.40.1.0/24
-# repeat: second run should skip adding duplicates
-sudo python3 vpcctl.py peer t1_vpc t2_vpc --allow-cidrs 10.30.1.0/24,10.40.1.0/24
-sudo iptables -S vpc-t1_vpc | sed -n '1,200p'
+# Preview commands before running
+vpcctl --dry-run create prod --cidr 10.20.0.0/16
 ```
 
-5) Policy test (ingress+egress)
+### 2. Consistent Naming
 
 ```bash
-sudo python3 vpcctl.py apply-policy t1_vpc policy_examples/example_ingress_egress_policy.json
-chmod +x policy_test.sh
-sudo ./policy_test.sh ns-t1_vpc-public 10.30.1.1 80   # expected OK
-sudo ./policy_test.sh ns-t1_vpc-public 10.30.1.1 25   # expected FAIL if policy denies
+# Environment prefixes
+sudo vpcctl create dev-app --cidr 10.10.0.0/16
+sudo vpcctl create staging-app --cidr 10.20.0.0/16
+sudo vpcctl create prod-app --cidr 10.30.0.0/16
 ```
 
-6) Cleanup
+### 3. Document CIDR Ranges
 
 ```bash
-sudo python3 vpcctl.py delete t1_vpc
-sudo python3 vpcctl.py delete t2_vpc
-# or
-sudo python3 vpcctl.py cleanup-all
+# Dev: 10.10.x.x
+# Staging: 10.20.x.x  
+# Production: 10.30.x.x
 ```
 
-Troubleshooting
------------------------
+### 4. Test in Disposable VMs
 
-- Must run as root: many operations require capabilities only root has.
-- iptables comment support: host rules are added with `-m comment --comment` — ensure `xt_comment` is available on your kernel (usually true on mainstream distros).
-- IFNAMSIZ: interface name too long — use shorter VPC/subnet names to avoid truncation surprises.
-- Deploy-app PID not present: check `/tmp/vpcctl-<ns>-http.log` for server errors.
-- If delete fails to remove a rule because it was manually changed, inspect `sudo iptables -S` and remove by hand.
+- Run `vpcctl` in test VMs, not production hosts
+- Use snapshots before testing
+- `vpcctl` modifies host networking globally
 
-Files you should know
----------------------
+### 5. Regular Cleanup
 
-- `vpcctl.py` — main CLI (read top-of-file docstring and function comments)
-- `.vpcctl_data/` — recorded metadata per VPC
-- `policy_examples/example_ingress_egress_policy.json` — example policy
-- `policy_test.sh` — small helper to curl from a namespace
-- `docs/demo_checklist.md` — one-page demo script
+```bash
+# After testing
+sudo vpcctl delete test-vpc
 
-Safety considerations
----------------------
-- This tool modifies the host network stack and requires root. Use in disposable test VMs.
-- NAT and iptables changes affect global host firewall rules. The script tries to be conservative and record what it changes for cleanup, but manual inspection is recommended before running on production hosts.
+# Complete cleanup
+sudo vpcctl cleanup-all
+sudo vpcctl verify
+```
+
+### 6. Version Control Policy Files
+
+```bash
+# Save custom policies
+mkdir -p policies
+sudo vpcctl apply-policy myvpc policies/production-web-policy.json
+git add policies/
+```
+
+### 7. Monitor Metadata
+
+```bash
+# Check metadata regularly
+ls -lh .vpcctl_data/
+cat .vpcctl_data/vpc_myvpc.json | jq .
+```
+
+---
+
+## Repository Structure
+
+```
+HNGi13-Stage4-vpcctl/
+├── vpcctl.py                    # Main CLI tool
+├── README.md                    # Quick start guide
+├── .vpcctl_data/                # Runtime metadata (auto-created)
+│   ├── vpc_myvpc.json
+│   └── policy_*.json
+├── docs/
+│   ├── Documentation.md         # This file - complete reference
+│   ├
+│   └── samples/                 # Test evidence
+│       └── actual-<timestamp>/  # Acceptance test outputs
+├── policy_examples/
+│   └── example_ingress_egress_policy.json
+└── scripts/
+    └── acceptance_test.sh       # Automated test suite
+```
+
+---
+
+## Quick Reference
+
+### Common Workflows
+
+**Setup development environment:**
+```bash
+sudo vpcctl create dev --cidr 10.10.0.0/16
+sudo vpcctl add-subnet dev web --cidr 10.10.1.0/24
+sudo vpcctl add-subnet dev db --cidr 10.10.2.0/24
+sudo vpcctl enable-nat dev --interface eth0 --subnet web
+sudo vpcctl deploy-app dev web --port 80
+sudo vpcctl deploy-app dev db --port 5432
+```
+
+**Multi-VPC setup with peering:**
+```bash
+sudo vpcctl create frontend --cidr 10.10.0.0/16
+sudo vpcctl create backend --cidr 10.20.0.0/16
+sudo vpcctl add-subnet frontend web --cidr 10.10.1.0/24
+sudo vpcctl add-subnet backend api --cidr 10.20.1.0/24
+sudo vpcctl peer frontend backend --allow-cidrs 10.10.1.0/24,10.20.1.0/24
+```
+
+**Apply security hardening:**
+```bash
+# Create restrictive policy
+cat > secure-policy.json <<EOF
+{
+  "subnet": "10.10.1.0/24",
+  "ingress": [
+    {"port": 443, "protocol": "tcp", "action": "allow"},
+    {"port": 22, "protocol": "tcp", "action": "deny"}
+  ],
+  "egress": [
+    {"port": 443, "protocol": "tcp", "action": "allow"},
+    {"port": 80, "protocol": "tcp", "action": "allow"}
+  ]
+}
+EOF
+
+sudo vpcctl apply-policy myvpc secure-policy.json
+```
+
+---
+
+## Additional Resources
+
+- **Beginner Guide**: See `docs/beginner.md` for step-by-step tutorials with analogies
+- **Example Policies**: Check `policy_examples/` for security policy templates  
+- **Test Evidence**: Browse `docs/samples/` for acceptance test outputs
+- **Source Code**: Read `vpcctl.py` top-of-file docstring for architecture details
+
+---
+
+**Last Updated:** November 2025  
+**Version:** 1.0  
+**License:** MIT
+
+**Last Updated:** November 2025  
+**Version:** 1.0  
+**License:** MIT
