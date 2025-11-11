@@ -36,33 +36,6 @@
 
 ---
 
-## Architecture Overview
-
-### How It Works
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      Host Machine                            │
-│                                                              │
-│  ┌────────────────────────────────────────────────────────┐ │
-│  │ VPC: myvpc (10.10.0.0/16)                              │ │
-│  │                                                         │ │
-│  │  Bridge: br-myvpc (10.10.0.1)                          │ │
-│  │    │                                                    │ │
-│  │    ├── veth ←→ Namespace: ns-myvpc-public             │ │
-│  │    │           └── IP: 10.10.1.2/24                    │ │
-│  │    │           └── App running on :8080                │ │
-│  │    │                                                    │ │
-│  │    └── veth ←→ Namespace: ns-myvpc-private            │ │
-│  │                └── IP: 10.10.2.2/24                    │ │
-│  │                └── Database running on :5432           │ │
-│  └────────────────────────────────────────────────────────┘ │
-│                                                              │
-│  iptables: NAT rules for internet access                    │
-│  Physical Interface: eth0 → Internet                        │
-└─────────────────────────────────────────────────────────────┘
-```
-
 ### Linux Primitives Used
 
 1. **Network Namespaces** (`ip netns`): Isolated network environments for each subnet

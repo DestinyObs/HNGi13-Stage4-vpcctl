@@ -264,7 +264,11 @@ def create_vpc(args):
         host_rules.append(_insert_comment(intra, f"vpcctl:{name}:intra"))
     meta = {"name": name, "cidr": cidr, "bridge": bridge, "subnets": [],
             "host_iptables": host_rules, "chain": chain, "apps": [], "peers": []}
-    save_meta(name, meta)
+    # Do not persist state in dry-run; keep dry-run side-effect free
+    if not dry:
+        save_meta(name, meta)
+    else:
+        print("(dry-run) metadata not written for VPC create")
     print(f"Created VPC '{name}' with bridge '{bridge}' and CIDR {cidr}")
 
 
@@ -277,10 +281,21 @@ def add_subnet(args):
         print(f"VPC '{vpc}' not found. Create it first."); sys.exit(1)
     net = _parse_network(cidr)
     meta = load_meta(vpc); bridge = meta["bridge"]
-    if any(s.get("name") == sub_name for s in meta.get("subnets", [])):
-        print(f"Subnet '{sub_name}' already exists in VPC '{vpc}' (idempotent).")
-        return
+    # Compute namespace name early for repair checks
     ns = f"ns-{vpc}-{sub_name}"
+    # If metadata says the subnet exists, verify the namespace truly exists; if not, repair
+    existing = next((s for s in meta.get("subnets", []) if s.get("name") == sub_name), None)
+    if existing:
+        try:
+            out = subprocess.run(["ip", "netns", "list"], capture_output=True, text=True)
+            ns_list = out.stdout or ""
+        except Exception:
+            ns_list = ""
+        if ns in ns_list:
+            print(f"Subnet '{sub_name}' already exists in VPC '{vpc}' (idempotent).")
+            return
+        else:
+            print(f"Subnet '{sub_name}' recorded but namespace missing; repairing…")
     v_host = safe_ifname([vpc, sub_name], prefix="v-", maxlen=15)
     v_peer = safe_ifname([vpc, sub_name], prefix="vbr-", maxlen=15)
     run(["ip", "netns", "add", ns], dry=dry)
@@ -304,9 +319,16 @@ def add_subnet(args):
     run(["ip", "netns", "exec", ns, "ip", "link", "set", v_host, "up"], dry=dry)
     run(["ip", "netns", "exec", ns, "ip", "link", "set", "lo", "up"], dry=dry)
     run(["ip", "netns", "exec", ns, "ip", "route", "add", "default", "via", bridge_gw], dry=dry)
-    meta["subnets"].append({"name": sub_name, "cidr": cidr, "ns": ns, "gw": bridge_gw,
-                             "host_ip": host_ip, "veth": v_host})
-    save_meta(vpc, meta)
+    # Persist only when not dry; update existing record if repairing
+    if not dry:
+        if existing:
+            existing.update({"cidr": cidr, "ns": ns, "gw": bridge_gw, "host_ip": host_ip, "veth": v_host})
+        else:
+            meta.setdefault("subnets", []).append({"name": sub_name, "cidr": cidr, "ns": ns, "gw": bridge_gw,
+                                                    "host_ip": host_ip, "veth": v_host})
+        save_meta(vpc, meta)
+    else:
+        print("(dry-run) metadata not written for add-subnet")
     # Policy merge (preserves original behavior, just factored)
     try:
         _merge_and_apply_policy(vpc, sub_name, cidr, dry)

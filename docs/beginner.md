@@ -189,7 +189,7 @@ sudo vpcctl enable-nat myvpc --interface "$IFACE"
 sudo ip netns exec ns-myvpc-private curl -s http://10.10.1.2:8080 | head -n 1
 
 # Public -> Internet (NAT)
-sudo ip netns exec ns-myvpc-public curl -s https://example.com | head -n 1
+sudo ip netns exec ns-myvpc-public curl -s https://google.com | head -n 1
 
 # Host -> Private (should fail)
 curl -s --connect-timeout 2 http://10.10.2.2:8081 || echo "private not reachable from host (expected)"
