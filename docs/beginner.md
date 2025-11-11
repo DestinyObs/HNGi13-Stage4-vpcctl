@@ -16,7 +16,28 @@
 4. [How vpcctl Works Under the Hood](#how-vpcctl-works-under-the-hood)
 5. [Prerequisites and Installation](#prerequisites-and-installation)
 6. [Your First VPC: Step-by-Step Tutorial](#your-first-vpc-step-by-step-tutorial)
+  - [Step 1: Create the VPC](#step-1-create-the-vpc)
+  - [Step 2: Add a Public Subnet](#step-2-add-a-public-subnet-for-the-web-server)
+  - [Step 3: Add a Private Subnet](#step-3-add-a-private-subnet-for-the-database)
+  - [Step 4: Deploy Test Applications](#step-4-deploy-test-applications)
+  - [Step 5: Test Intra-VPC Connectivity](#step-5-test-intra-vpc-connectivity)
+  - [Step 6: Enable Internet Access (NAT)](#step-6-enable-internet-access-nat)
+  - [Step 7: Test Internet Access](#step-7-test-internet-access)
+  - [Step 8: Apply Security Policies](#step-8-apply-security-policies)
+  - [Step 9: List Your VPCs](#step-9-list-your-vpcs)
+  - [Step 10: Inspect VPC Details](#step-10-inspect-vpc-details)
+  - [Step 11: Cleanup](#step-11-cleanup)
 7. [Understanding Every vpcctl Function](#understanding-every-vpcctl-function)
+  - [create](#1-create---create-a-new-vpc)
+  - [add-subnet](#2-add-subnet---create-a-subnet)
+  - [deploy-app](#3-deploy-app---deploy-a-test-application)
+  - [stop-app](#4-stop-app---stop-a-running-application)
+  - [enable-nat](#5-enable-nat---enable-internet-access)
+  - [peer](#6-peer---connect-two-vpcs)
+  - [apply-policy](#7-apply-policy---apply-firewall-rules)
+  - [list](#8-list---list-all-vpcs)
+  - [inspect](#9-inspect---view-vpc-details)
+  - [delete](#10-delete---delete-a-vpc)
 8. [Advanced Scenarios](#advanced-scenarios)
 9. [Troubleshooting Common Issues](#troubleshooting-common-issues)
 10. [Complete Code Reference](#complete-code-reference)
@@ -649,6 +670,12 @@ Mechanics:
 sudo vpcctl list
 ```
 
+Under the hood (simplified):
+```bash
+# Enumerate metadata files and derive VPC names
+ls .vpcctl_data | grep -E '^vpc_.*\.json$' | sed 's/^vpc_//; s/\.json$//'
+```
+
 **Output:**
 ```
 VPCs:
@@ -661,6 +688,13 @@ VPCs:
 sudo vpcctl inspect blog
 ```
 
+Under the hood:
+```bash
+# Read and format VPC metadata
+cat .vpcctl_data/vpc_blog.json
+# vpcctl aggregates and pretty-prints subnets, apps, peers, and policies
+```
+
 **Output:** Full JSON metadata showing subnets, IP addresses, running apps, and applied policies.
 
 ### Step 11: Cleanup
@@ -669,6 +703,23 @@ When you're done experimenting:
 ```bash
 sudo vpcctl delete blog
 ```
+
+Under the hood (high-level teardown sequence):
+```bash
+# Stop app processes and remove policy/NAT rules
+
+# Delete namespaces and their veth interfaces
+ip netns del ns-blog-webserver || true
+ip netns del ns-blog-database || true
+
+# Remove bridge
+ip link del br-blog || true
+
+# Remove metadata file
+rm -f .vpcctl_data/vpc_blog.json
+```
+
+All operations are idempotent: if something is already gone, vpcctl skips it safely.
 
 **What this does:**
 - Stops all running applications
@@ -838,6 +889,14 @@ curl http://10.10.1.2:8080
 sudo vpcctl stop-app <vpc-name> <subnet-name>
 ```
 
+Under the hood (simplified):
+```bash
+# Gracefully stop the test server running inside the subnet namespace
+ip netns exec ns-<vpc-name>-<subnet-name> pkill -TERM -f 'http.server' || true
+
+# vpcctl also tracks PIDs in metadata to ensure reliable cleanup
+```
+
 **What happens internally:**
 1. Looks up the PID from metadata
 2. Kills the process
@@ -903,6 +962,20 @@ ip route | grep default
 **Syntax:**
 ```bash
 sudo vpcctl peer <vpc1-name> <vpc2-name> --allow-cidrs <cidr1>,<cidr2>,...
+```
+
+Under the hood (simplified):
+```bash
+# Create a veth pair to bridge the two VPC bridges (logical link)
+ip link add v-<vpc1>-<vpc2>-a type veth peer name v-<vpc1>-<vpc2>-b
+ip link set v-<vpc1>-<vpc2>-a master br-<vpc1>
+ip link set v-<vpc1>-<vpc2>-b master br-<vpc2>
+ip link set v-<vpc1>-<vpc2>-a up
+ip link set v-<vpc1>-<vpc2>-b up
+
+# For each allowed CIDR create ACCEPT rules (chain names are namespaced)
+iptables -N vpc-peer-<vpc1>-<vpc2> 2>/dev/null || true
+iptables -A vpc-peer-<vpc1>-<vpc2> -s <cidr1> -d <cidr2> -j ACCEPT -m comment --comment peer-allow
 ```
 
 **Parameters:**
@@ -1024,6 +1097,12 @@ sudo vpcctl apply-policy myapp web_policy.json
 **Syntax:**
 ```bash
 sudo vpcctl list
+```
+
+Under the hood (simplified):
+```bash
+# Enumerate metadata files and derive VPC names
+ls .vpcctl_data | grep -E '^vpc_.*\.json$' | sed 's/^vpc_//; s/\.json$//'
 ```
 
 **Output example:**
@@ -1206,6 +1285,8 @@ vpcctl --dry-run add-subnet test web --cidr 10.99.1.0/24
 
 ## Advanced Scenarios
 
+## Advanced Scenarios
+
 ### Scenario 1: Multi-Tier Web Application
 
 Build a realistic 3-tier architecture:
@@ -1337,33 +1418,6 @@ sudo ip netns exec ns-prod-web curl http://10.70.1.2:9200
 # Verify: dev CANNOT reach prod (should fail)
 sudo ip netns exec ns-dev-web curl --max-time 5 http://10.60.1.2:8080 || echo "Correctly blocked!"
 ```
-
----
-
-### Scenario 4: Simulating Cloud Provider Regions
-
-```bash
-# Region 1: us-east
-sudo vpcctl create us-east --cidr 10.1.0.0/16
-sudo vpcctl add-subnet us-east public --cidr 10.1.1.0/24
-sudo vpcctl add-subnet us-east private --cidr 10.1.2.0/24
-
-# Region 2: eu-west
-sudo vpcctl create eu-west --cidr 10.2.0.0/16
-sudo vpcctl add-subnet eu-west public --cidr 10.2.1.0/24
-sudo vpcctl add-subnet eu-west private --cidr 10.2.2.0/24
-
-# Cross-region peering (like AWS Transit Gateway)
-sudo vpcctl peer us-east eu-west --allow-cidrs 10.1.1.0/24,10.2.1.0/24
-
-# Deploy apps
-sudo vpcctl deploy-app us-east public --port 8080
-sudo vpcctl deploy-app eu-west public --port 8080
-
-# Test cross-region communication
-sudo ip netns exec ns-us-east-public curl http://10.2.1.2:8080
-```
-
 ---
 
 ## Troubleshooting Common Issues
@@ -1962,24 +2016,6 @@ sudo vpcctl create prod --cidr 10.30.0.0/16
 - `man ip-netns`
 - `man iptables`
 - `man ip-link`
-
-### Practice Exercises
-
-**Exercise 1: Build a DMZ**
-Create a 3-subnet VPC with:
-- Public DMZ (web servers)
-- Private application tier
-- Private database tier
-
-**Exercise 2: Simulate AWS VPC**
-Replicate an AWS VPC setup with:
-- Public and private subnets across 2 availability zones
-- NAT gateway
-- Security groups via policies
-
-**Exercise 3: Microservices Mesh**
-Build 5+ microservices that communicate via private networking.
-
 ---
 
 ## Conclusion
@@ -2002,42 +2038,7 @@ You now have a complete understanding of:
 
 ---
 
-## Appendix: Mapping to Cloud Providers
-
-### vpcctl → AWS
-
-| vpcctl | AWS Equivalent |
-|--------|----------------|
-| VPC | VPC |
-| Subnet | Subnet |
-| enable-nat | NAT Gateway |
-| peer | VPC Peering |
-| apply-policy | Security Groups |
-| Bridge | (Internal AWS implementation) |
-| Namespace | (Internal AWS implementation) |
-
-### vpcctl → Azure
-
-| vpcctl | Azure Equivalent |
-|--------|------------------|
-| VPC | Virtual Network (VNet) |
-| Subnet | Subnet |
-| enable-nat | NAT Gateway |
-| peer | VNet Peering |
-| apply-policy | Network Security Groups (NSG) |
-
-### vpcctl → Google Cloud
-
-| vpcctl | GCP Equivalent |
-|--------|----------------|
-| VPC | VPC Network |
-| Subnet | Subnet |
-| enable-nat | Cloud NAT |
-| peer | VPC Peering |
-| apply-policy | Firewall Rules |
-
----
-
-**Author's Note:** This guide was written to be completely standalone and beginner-friendly. If you're reading this and something is unclear, that's a bug in the documentation, not in your understanding. Re-read the section, try the examples, and experiment!
+**Author's Note:** This guide was written to be beginner-friendly. If you're reading this and something is unclear, that's a bug in the documentation, not in your understanding. Re-read the section, try the examples, and experiment!
 
 **Happy networking!**
+**I'm DestinyObs, iDeploy | iSecure | iSustain!**
