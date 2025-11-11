@@ -26,21 +26,73 @@ sudo apt update
 sudo apt install -y python3 iproute2 iptables curl
 ```
 
+## Quick Start (For Graders & Reviewers)
+
+**Run the complete test suite in one command:**
+
+```bash
+git clone https://github.com/DestinyObs/HNGi13-Stage4-vpcctl.git
+cd HNGi13-Stage4-vpcctl
+sudo make all
+```
+
+This will:
+1. ✓ Install vpcctl CLI
+2. ✓ Run comprehensive tests (VPC creation, routing, NAT, isolation, peering, policies)
+3. ✓ Clean up all resources automatically
+4. ✓ Verify no orphaned namespaces/bridges remain
+
+**Expected runtime:** ~5 minutes  
+**All tests must pass** for a valid submission.
+
+---
+
 ## Installation
 
-Clone the repository and install `vpcctl` as a system command:
+### Method 1: Using Makefile (Recommended)
 
 ```bash
 # Clone the repo
 git clone https://github.com/DestinyObs/HNGi13-Stage4-vpcctl.git
 cd HNGi13-Stage4-vpcctl
 
-# Install vpcctl command (recommended: symlink method)
+# Install
+sudo make install
+
+# Run quick validation (2 mins)
+sudo make test-quick
+
+# Or run full test suite (5 mins)
+sudo make test-full
+
+# Cleanup when done
+sudo make cleanup
+```
+
+**Available Makefile targets:**
+- `make help` — Show all available commands
+- `make install` — Install vpcctl CLI
+- `make test-quick` — Quick validation test (~2 mins)
+- `make test-full` — Comprehensive test suite (~5 mins)
+- `make demo` — Interactive demo walkthrough
+- `make cleanup` — Remove all VPCs
+- `make verify` — Check for orphaned resources
+- `make uninstall` — Complete removal
+- `make all` — Install + test + cleanup (grader-friendly)
+
+### Method 2: Manual Installation
+
+```bash
+# Clone the repo
+git clone https://github.com/DestinyObs/HNGi13-Stage4-vpcctl.git
+cd HNGi13-Stage4-vpcctl
+
+# Install vpcctl command
 sudo chmod +x vpcctl.py
 sudo ln -sf "$(pwd)/vpcctl.py" /usr/local/bin/vpcctl
 
 # Verify installation
-vpcctl --help
+sudo vpcctl flag-check
 ```
 
 > **Note:** If you encounter `/usr/bin/env: 'python3\r': No such file or directory`, fix line endings:
