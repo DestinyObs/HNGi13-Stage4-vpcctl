@@ -944,38 +944,13 @@ sudo vpcctl add-subnet vpc1 sub1 --cidr 10.0.1.0/24
   "ingress": [
     {"port": 80, "protocol": "tcp", "action": "allow"},
     {"port": 443, "protocol": "tcp", "action": "allow"},
-
-✅ **Good:**    {"port": 22, "protocol": "tcp", "action": "deny"}
-
-```bash  ],
-
-sudo vpcctl create ecommerce --cidr 10.0.0.0/16  "egress": [
-
-sudo vpcctl add-subnet ecommerce web-tier --cidr 10.0.1.0/24    {"port": 25, "protocol": "tcp", "action": "deny"},
-
-sudo vpcctl add-subnet ecommerce database --cidr 10.0.2.0/24    {"port": 80, "protocol": "tcp", "action": "allow"}
-
-```  ]
-
+    {"port": 22, "protocol": "tcp", "action": "deny"}
+  ],
+  "egress": []
 }
+```
 
----```
-
-
-
-**3. Always Clean Up****What happens internally:**
-
-1. Reads the JSON policy
-
-After testing:2. Translates rules to iptables commands
-
-```bash3. Executes commands inside the namespace using `ip netns exec`
-
-sudo vpcctl delete test-vpc4. Records policy in metadata
-
-sudo vpcctl verify  # Check for orphans
-
-```**Examples:**
+**Examples:**
 
 
 
