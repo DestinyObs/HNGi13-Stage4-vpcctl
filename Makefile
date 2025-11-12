@@ -2,6 +2,9 @@
 # Author: DestinyObs
 # Purpose: Automate full workflow for graders and users
 
+# Ensure bash is used for features like `read -p` in the demo target
+SHELL := /bin/bash
+
 .PHONY: help install test-quick test-full demo cleanup verify uninstall all
 
 # Default target - show help
