@@ -75,7 +75,7 @@ test-quick: install
 	@echo "==> Test 2: Deploy Apps and Test Connectivity"
 	@vpcctl deploy-app test-vpc web --port 8080
 	@vpcctl deploy-app test-vpc db --port 5432
-	@sleep 2
+	@sleep 5
 	@ip netns exec ns-test-vpc-web curl -sS http://10.99.1.2:8080 | head -1 | grep -q DOCTYPE && echo " Web app reachable" || { echo " Web app failed"; exit 1; }
 	@ip netns exec ns-test-vpc-db curl -sS http://10.99.1.2:8080 | head -1 | grep -q DOCTYPE && echo " Intra-VPC routing works" || { echo " Routing failed"; exit 1; }
 	@echo ""
@@ -100,7 +100,7 @@ test-full: install
 	@vpcctl add-subnet prod-test private --cidr 10.10.2.0/24
 	@vpcctl deploy-app prod-test public --port 8080
 	@vpcctl deploy-app prod-test private --port 8081
-	@sleep 2
+	@sleep 5
 	@ip netns exec ns-prod-test-private curl -sS http://10.10.1.2:8080 | head -1 | grep -q DOCTYPE && echo "  Intra-VPC routing OK" || exit 1
 	@echo ""
 	@echo "==> Phase 2: NAT Gateway"
@@ -112,7 +112,7 @@ test-full: install
 	@vpcctl create staging-test --cidr 10.20.0.0/16
 	@vpcctl add-subnet staging-test web --cidr 10.20.1.0/24
 	@vpcctl deploy-app staging-test web --port 9090
-	@sleep 2
+	@sleep 5
 	@ip netns exec ns-prod-test-public curl -m 3 http://10.20.1.2:9090 2>&1 | grep -qE "(timed out|Connection refused)" && echo "  VPCs isolated" || { echo " Isolation failed"; exit 1; }
 	@echo ""
 	@echo "==> Phase 4: VPC Peering"
