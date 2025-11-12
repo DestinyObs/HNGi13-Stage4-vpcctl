@@ -18,8 +18,8 @@ help:
 	@echo ""
 	@echo "Individual Targets:"
 	@echo "  make install          - Install vpcctl CLI"
-	@echo "  make test-quick       - Quick validation (2 mins)"
-	@echo "  make test-full        - Comprehensive test (5 mins)"
+	@echo "  make test-quick       - Quick validation"
+	@echo "  make test-full        - Comprehensive test"
 	@echo "  make demo             - Interactive demo walkthrough"
 	@echo "  make cleanup          - Remove all VPCs"
 	@echo "  make verify           - Check for orphaned resources"
@@ -63,7 +63,7 @@ install: check-deps
 test-quick: install
 	@echo ""
 	@echo "=================================================="
-	@echo "  Quick Test Suite (2 minutes)"
+	@echo "  Quick Test Suite"
 	@echo "=================================================="
 	@echo ""
 	@echo "==> Test 1: Create VPC and Subnets"
@@ -90,7 +90,7 @@ test-quick: install
 test-full: install
 	@echo ""
 	@echo "=================================================="
-	@echo "  Full Test Suite (5 minutes)"
+	@echo "  Full Test Suite"
 	@echo "=================================================="
 	@$(MAKE) -s cleanup 2>/dev/null || true
 	@echo ""
