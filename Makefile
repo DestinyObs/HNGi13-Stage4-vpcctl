@@ -88,6 +88,7 @@ test-quick: install
 
 # Full comprehensive test
 test-full: install
+	@sudo iptables -P FORWARD DROP
 	@echo ""
 	@echo "=================================================="
 	@echo "  Full Test Suite"
@@ -196,6 +197,7 @@ uninstall:
 
 # Complete workflow (grader-friendly)
 all: install test-full cleanup
+	@sudo iptables -P FORWARD DROP
 	@echo ""
 	@echo "=================================================="
 	@echo "  Complete Test Cycle Finished"

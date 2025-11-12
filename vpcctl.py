@@ -242,6 +242,8 @@ def _record_rule(meta: Dict[str, Any], cmd: List[str], comment: str):
 
 def create_vpc(args):
     require_root()
+    # Ensure default isolation: block all forwarding by default
+    run(["iptables", "-P", "FORWARD", "DROP"], dry=args.dry)
     name = args.name
     cidr = getattr(args, 'cidr_flag', None) or getattr(args, 'cidr', None)
     dry = args.dry
