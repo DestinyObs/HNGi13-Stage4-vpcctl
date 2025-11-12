@@ -120,7 +120,8 @@ test-full: install
 	@echo "==> Phase 5: Security Policies"
 	@echo '{"subnet":"10.10.1.0/24","ingress":[{"port":80,"protocol":"tcp","action":"allow"},{"port":22,"protocol":"tcp","action":"deny"}],"egress":[]}' > /tmp/test-policy.json
 	@vpcctl apply-policy prod-test /tmp/test-policy.json
-	@ip netns exec ns-prod-test-public iptables -L INPUT -n | grep -q "tcp dpt:22.*DROP" && echo "  Firewall policy applied" || { echo "  Policy failed"; exit 1; }
+	# Verify using rule syntax (order-stable) instead of -L pretty output
+	@ip netns exec ns-prod-test-public iptables -S INPUT | grep -q -- "--dport 22 -j DROP" && echo "  Firewall policy applied" || { echo "  Policy failed"; exit 1; }
 	@rm -f /tmp/test-policy.json
 	@echo ""
 	@echo "==> Phase 6: Metadata & Verification"
